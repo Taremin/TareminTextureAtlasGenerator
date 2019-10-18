@@ -7,7 +7,7 @@ import numpy
 from . import blf_solver, walk_shader_node
 from .logging_settings import get_logger
 
-logger = get_logger(name=__name__, level="DEBUG")
+logger = get_logger(name=__name__)
 
 
 class OBJECT_OT_Atlas(bpy.types.Operator):

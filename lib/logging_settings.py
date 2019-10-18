@@ -51,6 +51,7 @@ def logging_settings(name=__name__, level=DEFAULT_LEVEL):
             name: {
                 "level": level,
                 "handlers": [
+                    console_handler_name,
                     error_handler_name,
                 ],
                 "propagate": False
