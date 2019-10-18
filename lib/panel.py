@@ -1,7 +1,6 @@
 import bpy
-from . import texture_group
-from . import texture_link
-from . import atlas
+
+from . import atlas, texture_group, texture_link, texture_scale
 
 
 # TODO: Class name
@@ -14,6 +13,9 @@ class AtlasPanelProps(bpy.types.PropertyGroup):
 
     texture_links: bpy.props.CollectionProperty(type=texture_link.TextureLinkProps)
     active_texture_link_index: bpy.props.IntProperty(name="Active Index", default=-1)
+
+    texture_scales: bpy.props.CollectionProperty(type=texture_scale.TextureScaleProps)
+    active_texture_scale_index: bpy.props.IntProperty(name="Active Index", default=-1)
 
     remove_uvmaps: bpy.props.BoolProperty(name="Remove UVMaps except atlas")
     replace_face_material: bpy.props.BoolProperty(name="Replace face material with texture atlas")
@@ -80,6 +82,25 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator(texture_link.TextureLink_OT_Add.bl_idname, text="", icon="ADD")
         col.operator(texture_link.TextureLink_OT_Remove.bl_idname, text="", icon="REMOVE")
+
+        # Texture Scale
+        row = layout.row()
+        row.label(text="Texture Scale:")
+
+        row = layout.row()
+        col = row.column()
+        col.template_list(
+            "VIEW3D_UL_TextureScale",
+            "test3",  # TODO
+            settings,
+            "texture_scales",
+            settings,
+            "active_texture_scale_index",
+            type="DEFAULT"
+        )
+        col = row.column(align=True)
+        col.operator(texture_scale.TextureScale_OT_Add.bl_idname, text="", icon="ADD")
+        col.operator(texture_scale.TextureScale_OT_Remove.bl_idname, text="", icon="REMOVE")
 
         # extra settings
         row = layout.row()

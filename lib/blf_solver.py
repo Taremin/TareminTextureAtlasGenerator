@@ -1,5 +1,10 @@
-import numpy
 import operator
+
+import numpy
+
+from .logging_settings import get_logger
+
+logger = get_logger(name=__name__, level="DEBUG")
 
 
 class BLFSolver:
@@ -16,7 +21,6 @@ class BLFSolver:
 
         for rect_idx in range(len(rects)):
             rect = rects[rect_idx]
-            cand = None
             min_bl = None
 
             for bl_index in range(len(bl_points)):
@@ -34,10 +38,8 @@ class BLFSolver:
 
             # 矩形を配置できなかったのでやり直し
             if min_bl is None:
-                # not found
-                # enlarge
-                print("error: size too small")
-                return
+                logger.debug("blf: space size too small")
+                return None
 
             # 配置予定の矩形
             bl_cand = bl_points[min_bl]
@@ -97,7 +99,7 @@ class BLFSolver:
             if result is not None:
                 break
             W <<= 1
-            print("Retry: W={}".format(W))
+            logger.debug("blf retry: W={}".format(W))
 
         return (W, result)
 

@@ -1,16 +1,23 @@
-import bpy
 import importlib
-import sys
 import inspect
+import sys
 from pathlib import Path
+
+import bpy
+
+from .lib import logging_settings
+
+logger = logging_settings.get_logger(__name__)
 
 # モジュール読み込み
 module_names = [
+    "logging_settings",
     "atlas",
     "walk_shader_node",
     "blf_solver",
     "texture_group",
     "texture_link",
+    "texture_scale",
     "panel"
 ]
 namespace = globals()
@@ -47,7 +54,8 @@ for module in module_names:
 def register():
     for value in classes:
         bpy.utils.register_class(value)
-    bpy.types.Scene.taremin_tag = bpy.props.PointerProperty(type=panel.AtlasPanelProps)  # TODO
+    panel = namespace["panel"]
+    bpy.types.Scene.taremin_tag = bpy.props.PointerProperty(type=panel.AtlasPanelProps)
 
 
 def unregister():
@@ -55,6 +63,7 @@ def unregister():
         bpy.utils.unregister_class(value)
     del bpy.types.Scene.taremin_tag
     Path(__file__).touch()
+
 
 if __name__ == '__main__':
     register()

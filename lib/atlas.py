@@ -1,15 +1,19 @@
+from enum import Enum
+
+import bmesh
 import bpy
 import numpy
-import bmesh
-from enum import Enum
-from . import walk_shader_node
-from . import blf_solver
+
+from . import blf_solver, walk_shader_node
+from .logging_settings import get_logger
+
+logger = get_logger(name=__name__, level="DEBUG")
 
 
 class OBJECT_OT_Atlas(bpy.types.Operator):
     bl_idname = 'taremin.atlas'
     bl_label = 'Generate Texture Atlas'
-    bl_description = 'atlas'
+    bl_description = 'generate texture atlas'
     bl_options = {'REGISTER', 'UNDO'}
 
     class NodesType(Enum):
@@ -22,33 +26,45 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
     def execute(self, context):
         settings = self.get_settings(context)
+        atlas_ctx = {}
 
         # 選択オブジェクトのマテリアル
-        target_materials = self.get_selected_objects_materials(context)
+        atlas_ctx["target_materials"] = self.get_selected_objects_materials(context)
 
         # 対象マテリアルのコピーを作成し、コピー元からコピー先への辞書を作成
-        mat_copy_dic = self.copy_materials(context, target_materials)
+        atlas_ctx["mat_copy"] = self.copy_materials(context, atlas_ctx["target_materials"])
 
         # 対象マテリアルのテクスチャノード取得
-        textures = self.get_texture_nodes(context, target_materials)
+        textures = self.get_texture_nodes(context, atlas_ctx["target_materials"])
+
+        # scale を適用
+        atlas_ctx["scale"] = self.create_image_to_scale_dict(context)
+        atlas_ctx["scaled_textures"] = self.scale_texture(context, textures, atlas_ctx["scale"])
 
         # テクスチャからUVレイヤーの紐づけ
-        image_uv_dic = self.get_image_to_uv_dict(context, textures)
+        atlas_ctx["image_uv"] = self.get_image_to_uv_dict(context, textures)
 
         # TODO: UVが同じでテクスチャが異なるものの対策を考える
 
         # create rects
-        rects = self.get_rects_from_unique_textures(context, image_uv_dic.keys(), image_uv_dic)
+        rects = self.get_rects_from_unique_textures(context, atlas_ctx["image_uv"], atlas_ctx["scaled_textures"])
+        for rect in rects:
+            logger.debug("rect: {}".format(rect))
 
         # create atlas
-        image, image_point_dic = self.create_atlas(context, rects, name=settings.output_texture_name)
+        image, image_point_dic = self.create_atlas(context, rects, atlas_ctx["scaled_textures"], name=settings.output_texture_name)
+
+        # remove scaled texture
+        for tex in atlas_ctx["scaled_textures"]:
+            logger.debug("remove temporary image: {}".format(atlas_ctx["scaled_textures"][tex][0]))
+            bpy.data.images.remove(atlas_ctx["scaled_textures"][tex][0])
 
         for obj in context.selected_objects:
             bm = bmesh.new()
             bm.from_mesh(obj.data)
             bm.faces.ensure_lookup_table()
 
-            add = self.add_clone_materials(context, obj, target_materials)
+            add = self.add_clone_materials(context, obj, atlas_ctx["target_materials"])
 
             # マテリアルごとの面を用意
             material_face = self.create_material_face_indices(context, obj, bm)
@@ -57,7 +73,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             new_uv = self.create_new_uvmap(context, obj, bm, image.size, image_point_dic, material_face, name=settings.output_uvmap_name)
 
             # マテリアル(コピー)の追加
-            material_idx_dict = self.get_clone_material_idx_dict(context, obj, add, mat_copy_dic)
+            material_idx_dict = self.get_clone_material_idx_dict(context, obj, add, atlas_ctx["mat_copy"])
 
             # UVMapノードの取得
             uvmap_nodes = self.get_uvmap_nodes(context, obj, add, material_idx_dict)
@@ -90,10 +106,9 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     obj.data.uv_layers.remove(uv_layer)
 
         # マテリアルのテクスチャノードの書き換え
-        self.replace_material_texture(context, [mat_copy_dic[material] for material in target_materials], image)
+        self.replace_material_texture(context, [atlas_ctx["mat_copy"][material] for material in atlas_ctx["target_materials"]], image)
 
         # 使用してないマテリアルスロットの削除
-        # self.remove_unused_material_slots(context)
         if settings.remove_material_slots:
             active_materials = {}
             for obj in context.selected_objects:
@@ -130,6 +145,35 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                 base_to_copy[material] = copy
                 material = copy
         return base_to_copy
+
+    def create_image_to_scale_dict(self, context):
+        settings = self.get_settings(context)
+        scale_dic = {}
+        for tex_scale in settings.texture_scales:
+            scale_dic[tex_scale.texture] = tex_scale.scale
+            logger.debug("set texture scale: texture=%s, scale=%f", tex_scale.texture, tex_scale.scale)
+        return scale_dic
+
+    def scale_texture(self, context, texture_nodes, scale_dic):
+        scaled = {}
+
+        for node in texture_nodes:
+            tex = node.image
+            logger.debug("texture node found: %s", tex)
+            if tex in scale_dic:
+                scale = scale_dic[tex]
+                if tex in scaled:
+                    logger.debug("skip: scaled texture already exists: {}".format(scaled[tex][0]))
+                else:
+                    scaled[tex] = (self.create_scaled_texture(context, tex, scale), scale)
+        return scaled
+
+    def create_scaled_texture(self, context, image, scale):
+        tmp = image.copy()
+        tmp.name = "tmp.scaled." + image.name
+        width, height = image.size
+        tmp.scale(width * scale, height * scale)
+        return tmp
 
     def get_settings(self, context):
         return context.scene.taremin_tag
@@ -173,7 +217,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     if isinstance(uvmap_node, bpy.types.ShaderNodeUVMap):
                         uv = layers[uvmap_node.uv_map]
                     else:
-                        print("Unsupported Node (UVMap)")
+                        logger.warn("Unsupported Node (UVMap)")
                         return {'CANCELLED'}
 
                 if image not in image_uv_dict:
@@ -182,15 +226,16 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     image_uv_dict[image].append(uv)
         return image_uv_dict
 
-    def get_rects_from_unique_textures(self, context, images, image_to_uv_dict):
+    def get_rects_from_unique_textures(self, context, image_to_uv_dict, scale_dic):
         return [
-            (image.size[0], image.size[1], image, image_to_uv_dict[image])
-            for image in images
+            (scale_dic[image][0].size[0], scale_dic[image][0].size[1], image, image_to_uv_dict[image])
+            if image in scale_dic
+            else (image.size[0], image.size[1], image, image_to_uv_dict[image])
+            for image in image_to_uv_dict.keys()
         ]
 
     def calc_init_size(self, rects):
         size = 1
-        max_size = 0
         total = 0
         for w, h, *etc in rects:
             total += w * h
@@ -199,7 +244,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
         return size
 
-    def create_atlas(self, context, rects, name="texture"):
+    def create_atlas(self, context, rects, scaled_texture, name="texture"):
         settings = self.get_settings(context)
         blf = blf_solver.BLFSolver(rects)
         size, results = blf.solve(self.calc_init_size(rects))
@@ -210,7 +255,6 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
         # texture link
         dic = {}
         used_texture_group = {}
-        numpy_dic = {}
         for link in settings.texture_links:
             ref_type = int(link.ref_type)
             texture_group = settings.texture_groups[ref_type]
@@ -222,9 +266,9 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                 link_image = bpy.data.images.new(name=link_texture_name, width=size, height=size)
                 link_pixels = numpy.full((size, size, 4), list(texture_group.color) + [1.0])
 
-                used_texture_group[texture_group] = link_image
+                used_texture_group[texture_group] = (link_image, link_pixels)
             else:
-                link_image = used_texture_group[texture_group]
+                link_image, link_pixels = used_texture_group[texture_group]
 
             # atlas image -> link image dictionary
             if source not in dic:
@@ -234,7 +278,11 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
         # atlas
         atlas_image_map = {}
         for (x, y, w, h, idx, image, mesh_uv_loop_layers) in results:
-            src_pixels = numpy.array(image.pixels).reshape(image.size[1], image.size[0], 4)
+            if image in scaled_texture:
+                scaled = scaled_texture[image][0]
+                src_pixels = numpy.array(scaled.pixels).reshape(scaled.size[1], scaled.size[0], 4)
+            else:
+                src_pixels = numpy.array(image.pixels).reshape(image.size[1], image.size[0], 4)
             self.copy_rect(pixels, x, y, src_pixels, 0, 0, w, h)
             atlas_image_map[image] = (x, y, w, h)
 
@@ -244,7 +292,12 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             x, y, w, h = atlas_image_map[image]
             if image in dic:
                 for (link_image, link_pixels, copy_source_image) in dic[image]:
-                    src_pixels = numpy.array(copy_source_image.pixels).reshape(copy_source_image.size[1], copy_source_image.size[0], 4)
+                    if image in scaled_texture:
+                        tmp = self.create_scaled_texture(context, copy_source_image, scaled_texture[image][1])
+                        src_pixels = numpy.array(tmp.pixels).reshape(tmp.size[1], tmp.size[0], 4)
+                        bpy.data.images.remove(tmp)
+                    else:
+                        src_pixels = numpy.array(copy_source_image.pixels).reshape(copy_source_image.size[1], copy_source_image.size[0], 4)
                     self.copy_rect(link_pixels, x, y, src_pixels, 0, 0, w, h)
                     link_images[link_image] = link_pixels
         for link_image in link_images:
@@ -278,7 +331,6 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             material = material_slot.material
             if material not in material_face:
                 continue
-            faces = material_face[material]
 
             def texture_image(node):
                 if self.check_atlas_target(context, node):
@@ -290,7 +342,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                         if isinstance(uvmap_node, bpy.types.ShaderNodeUVMap):
                             uv_layer = bm.loops.layers.uv[uvmap_node.uv_map]
                         else:
-                            print("Unsupported Node (UVMap)")
+                            logger.warn("Unsupported Node (UVMap)")
                     if uv_layer is not None:
                         new_layer = new_uv
                         x, y, w, h = image_point_dic[node.image]
@@ -341,40 +393,11 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
     def replace_material_texture(self, context, target_materials, image):
         def texture_image(node):
             if isinstance(node, bpy.types.ShaderNodeTexImage) and node.image is not None:
-                print(node.image)
+                logger.debug("replace node: %s", node.image)
                 node.image = image
 
         for material in target_materials:
             self.walk_node(self.NodesType.WALK, material.node_tree, texture_image)
-
-    def remove_unused_material_slots(self, context):
-        for obj in context.selected_objects:
-            bm = bmesh.new()
-            bm.from_mesh(obj.data)
-            bm.faces.ensure_lookup_table()
-
-            used_material = {}
-            for face in bm.faces:
-                used_material[face.material_index] = True
-
-            bm.to_mesh(obj.data)
-            obj.data.update()
-            bm.free()
-
-            material_slot_num = len(obj.material_slots)
-            current = obj.active_material_index
-            for i in range(material_slot_num):
-                idx = material_slot_num - i - 1
-                if idx in used_material:
-                    continue
-                obj.active_material_index = idx
-                bpy.ops.object.material_slot_remove()
-
-                if idx == current:
-                    current = 0
-                if idx < current:
-                    current -= 1
-            obj.active_material_index = current
 
     def fill_rect(self, array, x, y, w, h, color):
         array[y:y + h, x:x + w] = color
@@ -393,7 +416,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
             walk_shader_node.walk_group(node_tree, walk)
         else:
-            print("Invalid NodesType value: {}".format(type))
+            logger.warn("invalid NodesType value: {}".format(type))
 
         for node in nodes:
             function(node)

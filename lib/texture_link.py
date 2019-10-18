@@ -2,7 +2,7 @@ import bpy
 
 
 class TextureLinkProps(bpy.types.PropertyGroup):
-    def get_ref_type(scene, context):
+    def get_ref_type(self, context):
         settings = context.scene.taremin_tag
 
         texture_groups = [
@@ -22,8 +22,11 @@ class VIEW3D_UL_TextureLink(bpy.types.UIList):
         col.ui_units_x = 1.0
         col.label(text="", icon="LINKED")
         layout.prop(item, "ref_type", text="")
-        layout.prop(item, "ref_source", text="")
-        layout.prop(item, "ref_link", text="", icon="TRIA_LEFT")
+
+        icon = col.icon(item.ref_source) if item.ref_source else 0
+        layout.prop(item, "ref_source", text="", icon_value=icon)
+        icon = col.icon(item.ref_link) if item.ref_link else 0
+        layout.prop(item, "ref_link", text="", icon_value=icon)
 
 
 class TextureLink_OT_Add(bpy.types.Operator):
