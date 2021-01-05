@@ -217,8 +217,8 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     if isinstance(uvmap_node, bpy.types.ShaderNodeUVMap):
                         uv = layers[uvmap_node.uv_map]
                     else:
-                        logger.warn("Unsupported Node (UVMap)")
-                        return {'CANCELLED'}
+                        logger.warn("Unsupported Node (UVMap) in {} (Texture: {})".format(obj.name, image.name))
+                        uv = layers[layers.active_index]
 
                 if image not in image_uv_dict:
                     image_uv_dict[image] = []
@@ -262,7 +262,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
             if texture_group not in used_texture_group:
                 # create link texture
-                link_texture_name = ".".join((name, texture_group.name))
+                link_texture_name = "_".join((name, texture_group.name))
                 link_image = bpy.data.images.new(name=link_texture_name, width=size, height=size)
                 link_pixels = numpy.full((size, size, 4), list(texture_group.color) + [1.0])
 

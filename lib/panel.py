@@ -29,6 +29,21 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_category = 'Tools'
 
+    def check_link_size(self, context):
+        settings = context.scene.taremin_tag
+
+        errors = []
+        for link in settings.texture_links:
+            if link.ref_source is None or link.ref_link is None:
+                continue
+            if link.ref_source.size[0] != link.ref_link.size[0] or link.ref_source.size[1] != link.ref_link.size[1]:
+                errors.append(link)
+
+        if len(errors) > 0:
+            return errors
+        else:
+            return None
+
     def draw(self, context):
         settings = context.scene.taremin_tag
         layout = self.layout
@@ -82,6 +97,16 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator(texture_link.TextureLink_OT_Add.bl_idname, text="", icon="ADD")
         col.operator(texture_link.TextureLink_OT_Remove.bl_idname, text="", icon="REMOVE")
+
+        isValidLink = self.check_link_size(context)
+        if isValidLink is not None:
+            box = layout.box()
+            for error_link in isValidLink:
+                row = box.row()
+                row.label(
+                    text='"{}" and "{}" sizes are different'.format(error_link.ref_source.name, error_link.ref_link.name),
+                    icon='ERROR'
+                )
 
         # Texture Scale
         row = layout.row()
