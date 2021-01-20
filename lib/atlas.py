@@ -3,6 +3,7 @@ from enum import Enum
 import bmesh
 import bpy
 import numpy
+import os
 
 from . import blf_solver, walk_shader_node
 from .logging_settings import get_logger
@@ -52,7 +53,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             logger.debug("rect: {}".format(rect))
 
         # create atlas
-        image, image_point_dic = self.create_atlas(context, rects, atlas_ctx["scaled_textures"], name=settings.output_texture_name)
+        image, image_point_dic, link_images = self.create_atlas(context, rects, atlas_ctx["scaled_textures"], name=settings.output_texture_name)
 
         # remove scaled texture
         for tex in atlas_ctx["scaled_textures"]:
@@ -106,7 +107,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     obj.data.uv_layers.remove(uv_layer)
 
         # マテリアルのテクスチャノードの書き換え
-        self.replace_material_texture(context, [atlas_ctx["mat_copy"][material] for material in atlas_ctx["target_materials"]], image)
+        self.replace_material_texture(context, [atlas_ctx["mat_copy"][material] for material in atlas_ctx["target_materials"]], image, settings.output_uvmap_name)
 
         # 使用してないマテリアルスロットの削除
         if settings.remove_material_slots:
@@ -120,11 +121,24 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                 active_materials[obj.material_slots[obj.active_material_index].material] = True
 
             if settings.replace_active_material_nodetree:
-                self.replace_material_texture(context, active_materials.keys(), image)
+                self.replace_material_texture(context, active_materials.keys(), image, settings.output_uvmap_name)
 
-        # TODO: 画像をパックする？
+        if settings.is_auto_save:
+            # Texture Atlas (Base)
+            self.save_image(context, image)
+
+            # Texture Atlas (Link)
+            for group in link_images:
+                image, pixels = link_images[group]
+                self.save_image(context, image)
 
         return {'FINISHED'}
+
+    def save_image(self, context, image):
+        settings = self.get_settings(context)
+        image.filepath_raw = os.path.join(settings.output_directory, image.name + '.png')
+        image.file_format = 'PNG'
+        image.save()
 
     def get_selected_objects_materials(self, context):
         target_materials = []
@@ -305,7 +319,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
         atlas_image.pixels = pixels.ravel()
 
-        return (atlas_image, atlas_image_map)
+        return (atlas_image, atlas_image_map, used_texture_group)
 
     def add_clone_materials(self, context, obj, target_materials):
         add = []
@@ -390,11 +404,16 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
         return uvmap_nodes
 
-    def replace_material_texture(self, context, target_materials, image):
+    def replace_material_texture(self, context, target_materials, image, uvmap_name):
         def texture_image(node):
             if isinstance(node, bpy.types.ShaderNodeTexImage) and node.image is not None:
                 logger.debug("replace node: %s", node.image)
                 node.image = image
+                walk_shader_node.walk_node(node, uvmap)
+
+        def uvmap(node):
+            if isinstance(node, bpy.types.ShaderNodeUVMap):
+                node.uv_map = uvmap_name
 
         for material in target_materials:
             self.walk_node(self.NodesType.WALK, material.node_tree, texture_image)
@@ -406,6 +425,8 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
         dst_array[dy:dy + h, dx:dx + w] = src_array[sy:sy + h, sx:sx + w]
 
     def walk_node(self, type, node_tree, function):
+        nodes = None
+
         if type == self.NodesType.ALL:
             nodes = node_tree.nodes
         elif type == self.NodesType.WALK:

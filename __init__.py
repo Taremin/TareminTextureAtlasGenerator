@@ -30,12 +30,12 @@ for name in module_names:
 
 # アドオン情報
 bl_info = {
-    'name': 'Texture Atlas Generator',
+    'name': 'Taremin Texture Atlas Generator',
     'category': '3D View',
     'author': 'Taremin',
-    'location': 'View 3D > Tools',
+    'location': 'View 3D > Taremin',
     'description': "Generate texture atlas from selected objects",
-    'version': (0, 0, 2),
+    'version': (0, 0, 3),
     'blender': (2, 80, 0),
     'wiki_url': '',
     'tracker_url': '',

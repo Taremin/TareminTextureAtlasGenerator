@@ -1,33 +1,57 @@
 import bpy
+import json
+import os
 
 from . import atlas, texture_group, texture_link, texture_scale
+
+path = os.path.join(os.path.dirname(__file__), "../resources.json")
+resources = json.load(open(path, encoding="utf-8"))
+
+
+def read_resource(*props):
+    lang = bpy.app.translations.locale
+    prop = resources
+    for prop_name in props:
+        prop = prop[prop_name]
+    return prop[lang] if lang in prop else prop["en_US"]
+
+
+def read_property(*props):
+    return read_resource("property", *props)
+
+
+def read_panel(*props):
+    return read_resource("panel", *props)
 
 
 # TODO: Class name
 class AtlasPanelProps(bpy.types.PropertyGroup):
-    output_texture_name: bpy.props.StringProperty(name="Output Texture Name", default="AtlasTexture")
-    output_uvmap_name: bpy.props.StringProperty(name="Output UVMap Name", default="AtlasUVMap")
+    output_texture_name: bpy.props.StringProperty(name=read_property("output_texture_name", "name"), default="AtlasTexture")
+    output_uvmap_name: bpy.props.StringProperty(name=read_property("output_uvmap_name", "name"), default="AtlasUVMap")
 
     texture_groups: bpy.props.CollectionProperty(type=texture_group.TextureGroupProps)
-    active_texture_group_index: bpy.props.IntProperty(name="Active Index", default=-1)
+    active_texture_group_index: bpy.props.IntProperty(name=read_property("active_texture_group_index", "name"), default=-1)
 
     texture_links: bpy.props.CollectionProperty(type=texture_link.TextureLinkProps)
-    active_texture_link_index: bpy.props.IntProperty(name="Active Index", default=-1)
+    active_texture_link_index: bpy.props.IntProperty(name=read_property("active_texture_link_index", "name"), default=-1)
 
     texture_scales: bpy.props.CollectionProperty(type=texture_scale.TextureScaleProps)
-    active_texture_scale_index: bpy.props.IntProperty(name="Active Index", default=-1)
+    active_texture_scale_index: bpy.props.IntProperty(name=read_property("active_texture_scale_index", "name"), default=-1)
 
-    remove_uvmaps: bpy.props.BoolProperty(name="Remove UVMaps except atlas")
-    replace_face_material: bpy.props.BoolProperty(name="Replace face material with texture atlas")
-    remove_material_slots: bpy.props.BoolProperty(name="Remove material slots except active")
-    replace_active_material_nodetree: bpy.props.BoolProperty(name="Replace node tree texture with texture atlas")
+    remove_uvmaps: bpy.props.BoolProperty(name=read_property("remove_uvmaps", "name"))
+    replace_face_material: bpy.props.BoolProperty(name=read_property("replace_face_material", "name"))
+    remove_material_slots: bpy.props.BoolProperty(name=read_property("remove_material_slots", "name"))
+    replace_active_material_nodetree: bpy.props.BoolProperty(name=read_property("replace_active_material_nodetree", "name"))
+
+    is_auto_save: bpy.props.BoolProperty(name=read_property("is_auto_save", "name"), default=False)
+    output_directory: bpy.props.StringProperty(name=read_property("output_directory", "name"), default="//", subtype='DIR_PATH')
 
 
 class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
-    bl_label = 'Texture Atlas Generator'
+    bl_label = 'Taremin Texture Atlas Generator'
     bl_region_type = 'UI'
     bl_space_type = 'VIEW_3D'
-    bl_category = 'Tools'
+    bl_category = 'Taremin'
 
     def check_link_size(self, context):
         settings = context.scene.taremin_tag
@@ -49,26 +73,26 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         layout = self.layout
 
         row = layout.row()
-        row.label(text="Output texture name:")
+        row.label(text=read_panel("output_texture_name", "label") + ":")
         row = layout.row()
         row.prop(settings, "output_texture_name", text="")
 
         row = layout.row()
-        row.label(text="Output UVMap name:")
+        row.label(text=read_panel("output_uvmap_name", "label") + ":")
         row = layout.row()
         row.prop(settings, "output_uvmap_name", text="")
 
         layout.separator()
 
         row = layout.row()
-        row.label(text="Texture Group:")
+        row.label(text=read_panel("texture_group", "label") + ":")
 
         # Texture Group
         row = layout.row()
         col = row.column()
         col.template_list(
             "VIEW3D_UL_TextureGroup",
-            "test2",  # TODO
+            "",
             settings,
             "texture_groups",
             settings,
@@ -78,16 +102,19 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator(texture_group.TextureGroup_OT_Add.bl_idname, text="", icon="ADD")
         col.operator(texture_group.TextureGroup_OT_Remove.bl_idname, text="", icon="REMOVE")
+        col.separator()
+        col.operator(texture_group.TextureGroup_OT_Up.bl_idname, text="", icon="TRIA_UP")
+        col.operator(texture_group.TextureGroup_OT_Down.bl_idname, text="", icon="TRIA_DOWN")
 
         # Texture Link
         row = layout.row()
-        row.label(text="Texture Link:")
+        row.label(text=read_panel("texture_link", "label") + ":")
 
         row = layout.row()
         col = row.column()
         col.template_list(
             "VIEW3D_UL_TextureLink",
-            "test",  # TODO
+            "",
             settings,
             "texture_links",
             settings,
@@ -97,7 +124,11 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator(texture_link.TextureLink_OT_Add.bl_idname, text="", icon="ADD")
         col.operator(texture_link.TextureLink_OT_Remove.bl_idname, text="", icon="REMOVE")
+        col.separator()
+        col.operator(texture_link.TextureLink_OT_Up.bl_idname, text="", icon="TRIA_UP")
+        col.operator(texture_link.TextureLink_OT_Down.bl_idname, text="", icon="TRIA_DOWN")
 
+        # テクスチャリンクのサイズが一致するかチェック
         isValidLink = self.check_link_size(context)
         if isValidLink is not None:
             box = layout.box()
@@ -110,13 +141,13 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
 
         # Texture Scale
         row = layout.row()
-        row.label(text="Texture Scale:")
+        row.label(text=read_panel("texture_scale", "label") + ":")
 
         row = layout.row()
         col = row.column()
         col.template_list(
             "VIEW3D_UL_TextureScale",
-            "test3",  # TODO
+            "",
             settings,
             "texture_scales",
             settings,
@@ -126,22 +157,36 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         col = row.column(align=True)
         col.operator(texture_scale.TextureScale_OT_Add.bl_idname, text="", icon="ADD")
         col.operator(texture_scale.TextureScale_OT_Remove.bl_idname, text="", icon="REMOVE")
+        col.separator()
+        col.operator(texture_scale.TextureScale_OT_Up.bl_idname, text="", icon="TRIA_UP")
+        col.operator(texture_scale.TextureScale_OT_Down.bl_idname, text="", icon="TRIA_DOWN")
 
         # extra settings
         row = layout.row()
-        row.label(text="Extra settings:")
+        row.label(text=read_panel("extra_settings", "label") + ":")
+
         row = layout.row()
-        row.prop(settings, "remove_uvmaps", text="Remove all UVMaps except atlas")
+        row.prop(settings, "remove_uvmaps", text=read_property("remove_uvmaps", "name"))
+
         row = layout.row()
-        row.prop(settings, "replace_face_material", text="Replace face material with texture atlas")
+        row.prop(settings, "replace_face_material", text=read_property("replace_face_material", "name"))
+
         row = layout.row()
-        row.prop(settings, "remove_material_slots", text="Remove material slots except active")
+        row.prop(settings, "remove_material_slots", text=read_property("remove_material_slots", "name"))
         if settings.remove_material_slots:
-            row = layout.row()
-            row.prop(settings, "replace_active_material_nodetree", text="Replace active material nodetree with texture atlas")
+            box = layout.box()
+            row = box.row()
+            row.prop(settings, "replace_active_material_nodetree", text=read_property("replace_active_material_nodetree", "name"))
+
+        row = layout.row()
+        row.prop(settings, "is_auto_save", text=read_property("is_auto_save", "name"))
+        if settings.is_auto_save:
+            box = layout.box()
+            row = box.row()
+            row.prop(settings, "output_directory", text=read_property("output_directory", "name"))
 
         layout.separator()
 
         # generate atlas texture
         row = layout.row()
-        row.operator(atlas.OBJECT_OT_Atlas.bl_idname, text="Generate Texture")
+        row.operator(atlas.OBJECT_OT_Atlas.bl_idname, text=read_panel("generate_texture", "label"))

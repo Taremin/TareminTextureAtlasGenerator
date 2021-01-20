@@ -63,3 +63,39 @@ class TextureGroup_OT_Remove(bpy.types.Operator):
         if settings.active_texture_group_index > max_index:
             settings.active_texture_group_index = max_index
         return {'FINISHED'}
+
+
+class TextureGroup_OT_Up(bpy.types.Operator):
+    bl_idname = "taremin.up_texture_group"
+    bl_label = "Up Entry"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.taremin_tag.active_texture_group_index > 0
+
+    def execute(self, context):
+        settings = context.scene.taremin_tag
+        index = settings.active_texture_group_index
+        settings.texture_groups.move(index, index - 1)
+        settings.active_texture_group_index = index - 1
+        return {'FINISHED'}
+
+
+class TextureGroup_OT_Down(bpy.types.Operator):
+    bl_idname = "taremin.down_texture_group"
+    bl_label = "Down Entry"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.scene.taremin_tag
+        max_index = len(settings.texture_groups) - 1
+        return settings.active_texture_group_index < max_index
+
+    def execute(self, context):
+        settings = context.scene.taremin_tag
+        index = settings.active_texture_group_index
+        settings.texture_groups.move(index, index + 1)
+        settings.active_texture_group_index = index + 1
+        return {'FINISHED'}

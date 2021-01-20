@@ -58,3 +58,39 @@ class TextureLink_OT_Remove(bpy.types.Operator):
         if settings.active_texture_link_index > max_index:
             settings.active_texture_link_index = max_index
         return {'FINISHED'}
+
+
+class TextureLink_OT_Up(bpy.types.Operator):
+    bl_idname = "taremin.up_texture_link"
+    bl_label = "Up Entry"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.taremin_tag.active_texture_link_index > 0
+
+    def execute(self, context):
+        settings = context.scene.taremin_tag
+        index = settings.active_texture_link_index
+        settings.texture_links.move(index, index - 1)
+        settings.active_texture_link_index = index - 1
+        return {'FINISHED'}
+
+
+class TextureLink_OT_Down(bpy.types.Operator):
+    bl_idname = "taremin.down_texture_link"
+    bl_label = "Down Entry"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.scene.taremin_tag
+        max_index = len(settings.texture_links) - 1
+        return settings.active_texture_link_index < max_index
+
+    def execute(self, context):
+        settings = context.scene.taremin_tag
+        index = settings.active_texture_link_index
+        settings.texture_links.move(index, index + 1)
+        settings.active_texture_link_index = index + 1
+        return {'FINISHED'}
