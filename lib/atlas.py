@@ -202,7 +202,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                 if self.check_atlas_target(context, node):
                     textures.append(node)
 
-            walk_shader_node.walk_group(material.node_tree, get_texture_image)
+            walk_shader_node.walk_tree(material.node_tree, get_texture_image)
         return textures
 
     def check_atlas_target(self, context, node):
@@ -371,7 +371,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             if material.node_tree is None:
                 continue
 
-            walk_shader_node.walk_group(material.node_tree, texture_image)
+            walk_shader_node.walk_tree(material.node_tree, texture_image)
         return new_uv
 
     def get_clone_material_idx_dict(self, context, obj, add, mat_copy_dic):
@@ -400,7 +400,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     if isinstance(uvmap_node, bpy.types.ShaderNodeUVMap):
                         uvmap_nodes.append(uvmap_node)
 
-            walk_shader_node.walk_group(material.node_tree, get_uvmap_nodes)
+            walk_shader_node.walk_tree(material.node_tree, get_uvmap_nodes)
 
         return uvmap_nodes
 
@@ -409,7 +409,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             if isinstance(node, bpy.types.ShaderNodeTexImage) and node.image is not None:
                 logger.debug("replace node: %s", node.image)
                 node.image = image
-                walk_shader_node.walk_node(node, uvmap)
+                #walk_shader_node.walk_node(node, uvmap)
 
         def uvmap(node):
             if isinstance(node, bpy.types.ShaderNodeUVMap):
@@ -435,7 +435,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             def walk(node):
                 nodes.append(node)
 
-            walk_shader_node.walk_group(node_tree, walk)
+            walk_shader_node.walk_tree(node_tree, walk)
         else:
             logger.warn("invalid NodesType value: {}".format(type))
 

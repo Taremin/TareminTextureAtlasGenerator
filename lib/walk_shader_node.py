@@ -1,52 +1,45 @@
 import bpy
 
 
-def walk_group(group, func, output_type=bpy.types.ShaderNodeOutputMaterial):
-    outputs = [n for n in group.nodes if isinstance(n, output_type)]
+def walk_tree(nodetree, func, output_type=bpy.types.ShaderNodeOutputMaterial):
+    outputs = [n for n in nodetree.nodes if isinstance(n, output_type)]
+    target = []
+
+    def walk_process(node):
+        target.append(node)
+
     for output in outputs:
-        walk_node(output, func)
+        walk_node(output, walk_process)
 
-    # chack reachable inputs
-    if output_type is bpy.types.NodeGroupOutput:
-        input_nodes = [n for n in group.nodes if isinstance(n, bpy.types.NodeGroupInput)]
-        reachable = []
-        for node in input_nodes:
-            outputs = node.outputs
-            for o_socket in outputs:
-                for link in o_socket.links:
-                    next_node = link.to_node
-
-                    def get_reachable(node):
-                        if isinstance(node, bpy.types.NodeGroupOutput):
-                            reachable.append(o_socket.identifier)
-
-                    walk_input_to_output(next_node, get_reachable)
-        return list(set(reachable))
-    return None
+    for node in list(set(target)):
+        func(node)
 
 
-def walk_input_to_output(node, func):
+def walk_node(node, func, socket=None, stack=[], depth=0):
     func(node)
-    if isinstance(node, bpy.types.NodeGroupOutput):
-        return
-    for o_socket in node.outputs:
-        for link in o_socket.links:
-            next_node = link.to_node
-            walk_input_to_output(next_node, func)
+    inputs = node.inputs if socket is None else [socket]
 
-
-def walk_node(node, func, socket=None):
-    func(node)
-    inputs = node.inputs if socket is None else socket
     for i_socket in inputs:
         for link in i_socket.links:
             next_node = link.from_node
+            next_socket = link.from_socket
+
+            # Group In
             if isinstance(next_node, bpy.types.ShaderNodeGroup):
-                reachable = walk_group(next_node.node_tree, func, bpy.types.NodeGroupOutput)
-                sockdic = {}
-                for sock in next_node.inputs:
-                    sockdic[sock.identifier] = sock
-                reachable_socket = [sockdic[id] for id in reachable]
-                walk_node(next_node, func, reachable_socket)
+                stack.append(next_node)
+
+                group = next_node.node_tree
+                group_outputs = [n for n in group.nodes if isinstance(n, bpy.types.NodeGroupOutput)]
+
+                for group_output in group_outputs:
+                    for i in group_output.inputs:
+                        if i.identifier == next_socket.identifier:
+                            walk_node(group_output, func, socket=i, stack=stack, depth=depth + 1)
+            # Group Out
+            elif isinstance(next_node, bpy.types.NodeGroupInput):
+                next_node = stack[-1:][0]
+                for i in next_node.inputs:
+                    if i.identifier == next_socket.identifier:
+                        walk_node(next_node, func, socket=i, stack=stack[:-1], depth=depth - 1)
             else:
-                walk_node(next_node, func)
+                walk_node(next_node, func, stack=stack, depth=depth)
