@@ -69,6 +69,8 @@ zip ファイルをダウンロードして、「編集」「設定」「アド�
 
 ## 更新履歴
 
+- 0.0.4
+  - ノードツリーを辿る処理をノードグループ周辺できちんと有効なソケットを辿るように修正
 - 0.0.3
   - 名前を "Texture Atlas Generator" から "Taremin Texture Atlas Generator" に変更
   - UI を日本語対応
