@@ -2,7 +2,7 @@ import bpy
 import json
 import os
 
-from . import atlas, texture_group, texture_link, texture_scale
+from . import atlas, texture_group, texture_link, texture_scale, util
 
 path = os.path.join(os.path.dirname(__file__), "../resources.json")
 resources = json.load(open(path, encoding="utf-8"))
@@ -28,6 +28,7 @@ def read_panel(*props):
 class AtlasPanelProps(bpy.types.PropertyGroup):
     output_texture_name: bpy.props.StringProperty(name=read_property("output_texture_name", "name"), default="AtlasTexture")
     output_uvmap_name: bpy.props.StringProperty(name=read_property("output_uvmap_name", "name"), default="AtlasUVMap")
+    output_material_name: bpy.props.StringProperty(name=read_property("output_material_name", "name"), default="AtlasMaterial")
 
     texture_groups: bpy.props.CollectionProperty(type=texture_group.TextureGroupProps)
     active_texture_group_index: bpy.props.IntProperty(name=read_property("active_texture_group_index", "name"), default=-1)
@@ -41,13 +42,12 @@ class AtlasPanelProps(bpy.types.PropertyGroup):
     remove_uvmaps: bpy.props.BoolProperty(name=read_property("remove_uvmaps", "name"))
     replace_face_material: bpy.props.BoolProperty(name=read_property("replace_face_material", "name"))
     remove_material_slots: bpy.props.BoolProperty(name=read_property("remove_material_slots", "name"))
-    replace_active_material_nodetree: bpy.props.BoolProperty(name=read_property("replace_active_material_nodetree", "name"))
 
     is_auto_save: bpy.props.BoolProperty(name=read_property("is_auto_save", "name"), default=False)
     output_directory: bpy.props.StringProperty(name=read_property("output_directory", "name"), default="//", subtype='DIR_PATH')
 
 
-class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
+class TAREMIN_TEXTURE_ATLAS_GENERATOR_PT_Panel(bpy.types.Panel):
     bl_label = 'Taremin Texture Atlas Generator'
     bl_region_type = 'UI'
     bl_space_type = 'VIEW_3D'
@@ -81,6 +81,11 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         row.label(text=read_panel("output_uvmap_name", "label") + ":")
         row = layout.row()
         row.prop(settings, "output_uvmap_name", text="")
+
+        row = layout.row()
+        row.label(text=read_panel("output_material_name", "label") + ":")
+        row = layout.row()
+        row.prop(settings, "output_material_name", text="")
 
         layout.separator()
 
@@ -172,13 +177,6 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
         row.prop(settings, "replace_face_material", text=read_property("replace_face_material", "name"))
 
         row = layout.row()
-        row.prop(settings, "remove_material_slots", text=read_property("remove_material_slots", "name"))
-        if settings.remove_material_slots:
-            box = layout.box()
-            row = box.row()
-            row.prop(settings, "replace_active_material_nodetree", text=read_property("replace_active_material_nodetree", "name"))
-
-        row = layout.row()
         row.prop(settings, "is_auto_save", text=read_property("is_auto_save", "name"))
         if settings.is_auto_save:
             box = layout.box()
@@ -189,4 +187,10 @@ class VIEW3D_PT_AtlasPanel(bpy.types.Panel):
 
         # generate atlas texture
         row = layout.row()
-        row.operator(atlas.OBJECT_OT_Atlas.bl_idname, text=read_panel("generate_texture", "label"))
+        is_uvmap_limit, uvmap_limit_objs = util.is_uvmap_upper_limit(context)
+        if is_uvmap_limit:
+            col = row.column()
+            col.label(text="limit")
+            row = layout.row()
+
+        row.operator(atlas.TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas.bl_idname, text=read_panel("generate_texture", "label"))

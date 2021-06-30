@@ -5,13 +5,21 @@ import bpy
 import numpy
 import os
 
-from . import blf_solver, walk_shader_node
+from . import blf_solver, walk_shader_node, util
 from .logging_settings import get_logger
 
 logger = get_logger(name=__name__)
 
 
-class OBJECT_OT_Atlas(bpy.types.Operator):
+def get_active_object():
+    return bpy.context.window.view_layer.objects.active
+
+
+def set_active_object(obj):
+    bpy.context.window.view_layer.objects.active = obj
+
+
+class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
     bl_idname = 'taremin.atlas'
     bl_label = 'Generate Texture Atlas'
     bl_description = 'generate texture atlas'
@@ -23,7 +31,8 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return len(context.selected_objects) > 0
+        is_uvmap_limit, uvmap_limit_objs = util.is_uvmap_upper_limit(context)
+        return len(context.selected_objects) > 0 and not is_uvmap_limit
 
     def execute(self, context):
         settings = self.get_settings(context)
@@ -60,12 +69,14 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             logger.debug("remove temporary image: {}".format(atlas_ctx["scaled_textures"][tex][0]))
             bpy.data.images.remove(atlas_ctx["scaled_textures"][tex][0])
 
+        # 表示用マテリアルの追加
+        material = util.get_asset_material(context, "AtlasMaterial")
+        material.name = settings.output_material_name
+
         for obj in context.selected_objects:
             bm = bmesh.new()
             bm.from_mesh(obj.data)
             bm.faces.ensure_lookup_table()
-
-            add = self.add_clone_materials(context, obj, atlas_ctx["target_materials"])
 
             # マテリアルごとの面を用意
             material_face = self.create_material_face_indices(context, obj, bm)
@@ -73,25 +84,20 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
             # UVMapの作成
             new_uv = self.create_new_uvmap(context, obj, bm, image.size, image_point_dic, material_face, name=settings.output_uvmap_name)
 
-            # マテリアル(コピー)の追加
-            material_idx_dict = self.get_clone_material_idx_dict(context, obj, add, atlas_ctx["mat_copy"])
-
-            # UVMapノードの取得
-            uvmap_nodes = self.get_uvmap_nodes(context, obj, add, material_idx_dict)
+            # マテリアルの追加
+            index = len(obj.data.materials)
+            obj.data.materials.append(material)
+            obj.active_material_index = index
 
             # 面のマテリアル割当の差し替え
             if settings.replace_face_material:
                 for face in bm.faces:
-                    face.material_index = material_idx_dict[face.material_index]
+                    face.material_index = index
 
             uvmap_name = new_uv.name
             bm.to_mesh(obj.data)
             obj.data.update()
             bm.free()
-
-            # UVMapノードを書き換え
-            for uvmap_node in uvmap_nodes:
-                uvmap_node.uv_map = uvmap_name
 
             # アクティブUVMapの変更
             obj.data.uv_layers.active = obj.data.uv_layers[uvmap_name]
@@ -107,21 +113,21 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                     obj.data.uv_layers.remove(uv_layer)
 
         # マテリアルのテクスチャノードの書き換え
-        self.replace_material_texture(context, [atlas_ctx["mat_copy"][material] for material in atlas_ctx["target_materials"]], image, settings.output_uvmap_name)
+        self.replace_material_texture(context, [material], image, settings.output_uvmap_name)
 
         # 使用してないマテリアルスロットの削除
         if settings.remove_material_slots:
-            active_materials = {}
+            active_object = get_active_object()
+
             for obj in context.selected_objects:
+                set_active_object(obj)
                 active_index = obj.active_material_index
                 remove_list = reversed([i for i, slot in enumerate(obj.material_slots) if i != active_index])
                 for index in remove_list:
                     obj.active_material_index = index
                     bpy.ops.object.material_slot_remove()
-                active_materials[obj.material_slots[obj.active_material_index].material] = True
 
-            if settings.replace_active_material_nodetree:
-                self.replace_material_texture(context, active_materials.keys(), image, settings.output_uvmap_name)
+            set_active_object(active_object)
 
         if settings.is_auto_save:
             # Texture Atlas (Base)
@@ -405,8 +411,12 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
         return uvmap_nodes
 
     def replace_material_texture(self, context, target_materials, image, uvmap_name):
+        def visit(node):
+            texture_image(node)
+            uvmap(node)
+
         def texture_image(node):
-            if isinstance(node, bpy.types.ShaderNodeTexImage) and node.image is not None:
+            if isinstance(node, bpy.types.ShaderNodeTexImage):
                 logger.debug("replace node: %s", node.image)
                 node.image = image
                 #walk_shader_node.walk_node(node, uvmap)
@@ -416,7 +426,7 @@ class OBJECT_OT_Atlas(bpy.types.Operator):
                 node.uv_map = uvmap_name
 
         for material in target_materials:
-            self.walk_node(self.NodesType.WALK, material.node_tree, texture_image)
+            self.walk_node(self.NodesType.WALK, material.node_tree, visit)
 
     def fill_rect(self, array, x, y, w, h, color):
         array[y:y + h, x:x + w] = color

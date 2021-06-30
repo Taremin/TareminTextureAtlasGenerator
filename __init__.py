@@ -11,6 +11,7 @@ logger = logging_settings.get_logger(__name__)
 
 # モジュール読み込み
 module_names = [
+    "util",
     "logging_settings",
     "atlas",
     "walk_shader_node",
@@ -18,7 +19,7 @@ module_names = [
     "texture_group",
     "texture_link",
     "texture_scale",
-    "panel"
+    "panel",
 ]
 namespace = globals()
 for name in module_names:
@@ -35,7 +36,7 @@ bl_info = {
     'author': 'Taremin',
     'location': 'View 3D > Taremin',
     'description': "Generate texture atlas from selected objects",
-    'version': (0, 0, 4),
+    'version': (0, 1, 0),
     'blender': (2, 80, 0),
     'wiki_url': '',
     'tracker_url': '',
@@ -53,14 +54,28 @@ for module in module_names:
 
 def register():
     for value in classes:
-        bpy.utils.register_class(value)
+        retry = 0
+        while True:
+            try:
+                bpy.utils.register_class(value)
+                break
+            except ValueError:
+                bpy.utils.unregister_class(value)
+                retry += 1
+                if retry > 1:
+                    break
     panel = namespace["panel"]
     bpy.types.Scene.taremin_tag = bpy.props.PointerProperty(type=panel.AtlasPanelProps)
 
 
 def unregister():
     for value in classes:
-        bpy.utils.unregister_class(value)
+        print("Unregister:", value)
+        try:
+            bpy.utils.unregister_class(value)
+        except RuntimeError:
+            pass
+
     del bpy.types.Scene.taremin_tag
     Path(__file__).touch()
 

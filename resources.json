@@ -1,0 +1,126 @@
+{
+    "panel": {
+        "output_texture_name": {
+            "label": {
+                "en_US": "Output Texture Name",
+                "ja_JP": "出力テクスチャ名"
+            }
+        },
+        "output_uvmap_name": {
+            "label": {
+                "en_US": "Output UVMap Name",
+                "ja_JP": "出力UVマップ名"
+            }
+        },
+        "output_material_name": {
+            "label": {
+                "en_US": "Output Material Name",
+                "ja_JP": "出力マテリアル名"
+            }
+        },
+        "texture_group": {
+            "label": {
+                "en_US": "Texture Group",
+                "ja_JP": "テクスチャグループ"
+            }
+        },
+        "texture_link": {
+            "label": {
+                "en_US": "Texture Link",
+                "ja_JP": "テクスチャリンク"
+            }
+        },
+        "texture_scale": {
+            "label": {
+                "en_US": "Texture Scale",
+                "ja_JP": "テクスチャスケール"
+            }
+        },
+        "extra_settings": {
+            "label": {
+                "en_US": "Extra settings",
+                "ja_JP": "その他設定"
+            }
+        },
+        "generate_texture": {
+            "label": {
+                "en_US": "Generate Atlas",
+                "ja_JP": "アトラス画像の生成"
+            }
+        }
+    },
+    "property": {
+        "output_texture_name": {
+            "name": {
+                "en_US": "Output Texture Name",
+                "ja_JP": "出力テクスチャ名"
+            }
+        },
+        "output_uvmap_name": {
+            "name": {
+                "en_US": "Output UVMap Name",
+                "ja_JP": "出力UVマップ名"
+            }
+        },
+        "output_material_name": {
+            "name": {
+                "en_US": "Output Material Name",
+                "ja_JP": "出力マテリアル名"
+            }
+        },
+        "active_texture_group_index": {
+            "name": {
+                "en_US": "Active Index",
+                "ja_JP": "アクティブインデックス"
+            }
+        },
+        "active_texture_link_index": {
+            "name": {
+                "en_US": "Active Index",
+                "ja_JP": "アクティブインデックス"
+            }
+        },
+        "active_texture_scale_index": {
+            "name": {
+                "en_US": "Active Index",
+                "ja_JP": "アクティブインデックス"
+            }
+        },
+        "remove_uvmaps": {
+            "name": {
+                "en_US": "Remove UVMaps except atlas",
+                "ja_JP": "アトラス以外のUVマップを削除"
+            }
+        },
+        "replace_face_material": {
+            "name": {
+                "en_US": "Replace face material with texture atlas",
+                "ja_JP": "面に割り当てられたマテリアルをテクスチャアトラス用のマテリアルに置き換える"
+            }
+        },
+        "remove_material_slots": {
+            "name": {
+                "en_US": "Remove material slots except active",
+                "ja_JP": "アクティブなマテリアル以外を削除する"
+            }
+        },
+        "replace_active_material_nodetree": {
+            "name": {
+                "en_US": "Replace node tree texture with texture atlas",
+                "ja_JP": "シェーダーノードの画像テクスチャノードをテクスチャアトラスに置き換える"
+            }
+        },
+        "is_auto_save": {
+            "name": {
+                "en_US": "Auto save atlas images",
+                "ja_JP": "テクスチャアトラス画像をファイルに自動保存"
+            }
+        },
+        "output_directory": {
+            "name": {
+                "en_US": "Output Directory",
+                "ja_JP": "出力先ディレクトリ"
+            }
+        }
+    }
+}
