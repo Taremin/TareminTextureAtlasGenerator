@@ -192,7 +192,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         tmp = image.copy()
         tmp.name = "tmp.scaled." + image.name
         width, height = image.size
-        tmp.scale(width * scale, height * scale)
+        tmp.scale(int(width * scale), int(height * scale))
         return tmp
 
     def get_settings(self, context):
