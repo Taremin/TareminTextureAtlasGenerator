@@ -6,6 +6,8 @@ def is_uvmap_upper_limit(context):
     result = [False, limit_objs]
 
     for obj in context.selected_objects:
+        if not hasattr(obj.data, "uv_layers"):
+            continue
         num = len(obj.data.uv_layers)
         if num >= 8:
             result[0] = True
