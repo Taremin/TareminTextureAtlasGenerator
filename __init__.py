@@ -36,7 +36,7 @@ bl_info = {
     'author': 'Taremin',
     'location': 'View 3D > Taremin',
     'description': "Generate texture atlas from selected objects",
-    'version': (0, 1, 1),
+    'version': (0, 1, 2),
     'blender': (2, 80, 0),
     'wiki_url': '',
     'tracker_url': '',
