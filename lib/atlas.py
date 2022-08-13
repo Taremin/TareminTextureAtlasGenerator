@@ -270,7 +270,8 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         size, results = blf.solve(self.calc_init_size(rects))
 
         atlas_image = bpy.data.images.new(name=name, width=size, height=size)
-        pixels = numpy.array(atlas_image.pixels).reshape(size, size, 4)
+        pixels = numpy.zeros((size, size, 4), "f")
+        atlas_image.pixels.foreach_get(pixels.ravel())
 
         # texture link
         dic = {}
@@ -300,9 +301,11 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         for (x, y, w, h, idx, image, mesh_uv_loop_layers) in results:
             if image in scaled_texture:
                 scaled = scaled_texture[image][0]
-                src_pixels = numpy.array(scaled.pixels).reshape(scaled.size[1], scaled.size[0], 4)
+                src_pixels = numpy.zeros((scaled.size[1], scaled.size[0], 4), "f")
+                scaled.pixels.foreach_get(src_pixels.ravel())
             else:
-                src_pixels = numpy.array(image.pixels).reshape(image.size[1], image.size[0], 4)
+                src_pixels = numpy.zeros((image.size[1], image.size[0], 4), "f")
+                image.pixels.foreach_get(src_pixels.ravel())
             self.copy_rect(pixels, x, y, src_pixels, 0, 0, w, h)
             atlas_image_map[image] = (x, y, w, h)
 
@@ -314,16 +317,18 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                 for (link_image, link_pixels, copy_source_image) in dic[image]:
                     if image in scaled_texture:
                         tmp = self.create_scaled_texture(context, copy_source_image, scaled_texture[image][1])
-                        src_pixels = numpy.array(tmp.pixels).reshape(tmp.size[1], tmp.size[0], 4)
+                        src_pixels = numpy.zeros((tmp.size[1], tmp.size[0], 4), "f")
+                        tmp.pixels.foreach_get(src_pixels.ravel())
                         bpy.data.images.remove(tmp)
                     else:
-                        src_pixels = numpy.array(copy_source_image.pixels).reshape(copy_source_image.size[1], copy_source_image.size[0], 4)
+                        src_pixels = numpy.zeros((copy_source_image.size[1], copy_source_image.size[0], 4), "f")
+                        copy_source_image.pixels.foreach_get(src_pixels.ravel())
                     self.copy_rect(link_pixels, x, y, src_pixels, 0, 0, w, h)
                     link_images[link_image] = link_pixels
         for link_image in link_images:
             link_image.pixels = link_images[link_image].ravel()
 
-        atlas_image.pixels = pixels.ravel()
+        atlas_image.pixels.foreach_set(pixels.ravel())
 
         return (atlas_image, atlas_image_map, used_texture_group)
 
