@@ -2,7 +2,7 @@ import bpy
 
 
 class TextureGroupProps(bpy.types.PropertyGroup):
-    name: bpy.props.StringProperty
+    name: bpy.props.StringProperty(name="Name")
     color: bpy.props.FloatVectorProperty(
         name="Color",
         subtype="COLOR",
@@ -12,7 +12,9 @@ class TextureGroupProps(bpy.types.PropertyGroup):
 
 
 class VIEW3D_UL_TextureGroup(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(
+        self, context, layout, data, item, icon, active_data, active_propname, index
+    ):
         layout.label(text="", icon="GROUP")
         layout.prop(item, "name", text="")
         col = layout.column()
@@ -23,21 +25,23 @@ class VIEW3D_UL_TextureGroup(bpy.types.UIList):
 class TextureGroup_OT_Add(bpy.types.Operator):
     bl_idname = "taremin.add_texture_group"
     bl_label = "Add Entry"
-    bl_description = 'hoge'
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_description = "hoge"
+    bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
         settings = context.scene.taremin_tag
         settings.texture_groups.add()
         settings.active_texture_group_index = len(settings.texture_groups) - 1
-        settings.texture_groups[settings.active_texture_group_index].name = "TextureGroup"
-        return {'FINISHED'}
+        settings.texture_groups[
+            settings.active_texture_group_index
+        ].name = "TextureGroup"
+        return {"FINISHED"}
 
 
 class TextureGroup_OT_Remove(bpy.types.Operator):
     bl_idname = "taremin.remove_texture_group"
     bl_label = "Remove Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -62,13 +66,13 @@ class TextureGroup_OT_Remove(bpy.types.Operator):
         max_index = len(settings.texture_groups) - 1
         if settings.active_texture_group_index > max_index:
             settings.active_texture_group_index = max_index
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class TextureGroup_OT_Up(bpy.types.Operator):
     bl_idname = "taremin.up_texture_group"
     bl_label = "Up Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -79,13 +83,13 @@ class TextureGroup_OT_Up(bpy.types.Operator):
         index = settings.active_texture_group_index
         settings.texture_groups.move(index, index - 1)
         settings.active_texture_group_index = index - 1
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class TextureGroup_OT_Down(bpy.types.Operator):
     bl_idname = "taremin.down_texture_group"
     bl_label = "Down Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -98,4 +102,4 @@ class TextureGroup_OT_Down(bpy.types.Operator):
         index = settings.active_texture_group_index
         settings.texture_groups.move(index, index + 1)
         settings.active_texture_group_index = index + 1
-        return {'FINISHED'}
+        return {"FINISHED"}

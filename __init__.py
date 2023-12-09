@@ -16,6 +16,7 @@ module_names = [
     "atlas",
     "walk_shader_node",
     "blf_solver",
+    "material_group",
     "texture_group",
     "texture_link",
     "texture_scale",

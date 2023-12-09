@@ -4,6 +4,7 @@ import bmesh
 import bpy
 import numpy
 import os
+import re
 
 from . import blf_solver, walk_shader_node, util
 from .logging_settings import get_logger
@@ -20,10 +21,10 @@ def set_active_object(obj):
 
 
 class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
-    bl_idname = 'taremin.atlas'
-    bl_label = 'Generate Texture Atlas'
-    bl_description = 'generate texture atlas'
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_idname = "taremin.atlas"
+    bl_label = "Generate Texture Atlas"
+    bl_description = "generate texture atlas"
+    bl_options = {"REGISTER", "UNDO"}
 
     class NodesType(Enum):
         ALL = 0
@@ -36,93 +37,164 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
     def execute(self, context):
         settings = self.get_settings(context)
-        atlas_ctx = {}
 
         # 選択オブジェクトのマテリアル
-        atlas_ctx["target_materials"] = self.get_selected_objects_materials(context)
+        target_materials = self.get_selected_objects_materials(context)
 
-        # 対象マテリアルのコピーを作成し、コピー元からコピー先への辞書を作成
-        atlas_ctx["mat_copy"] = self.copy_materials(context, atlas_ctx["target_materials"])
+        # 複数のアトラスにマテリアルを振り分ける
+        material_groups = {}
+        for material in target_materials:
+            matched = False
 
-        # 対象マテリアルのテクスチャノード取得
-        textures = self.get_texture_nodes(context, atlas_ctx["target_materials"])
+            for material_group in settings.material_groups:
+                # 正規表現の入力文字列のエスケープを外す
+                pattern = material_group.regex.encode().decode("unicode_escape")
 
-        # scale を適用
-        atlas_ctx["scale"] = self.create_image_to_scale_dict(context)
-        atlas_ctx["scaled_textures"] = self.scale_texture(context, textures, atlas_ctx["scale"])
+                if re.search(pattern=pattern, string=material.name):
+                    replaced = re.sub(
+                        pattern=".*" + pattern + ".*",
+                        repl=material_group.name,
+                        string=material.name,
+                    )
+                    logger.debug(f"Material Group: {material.name} => {replaced}")
+                    if replaced not in material_groups:
+                        material_groups[replaced] = []
+                    material_groups[replaced].append(material)
+                    matched = True
+                    break
 
-        # テクスチャからUVレイヤーの紐づけ
-        atlas_ctx["image_uv"] = self.get_image_to_uv_dict(context, textures)
+            if not matched:
+                if None not in material_groups:
+                    material_groups[None] = []
+                material_groups[None].append(material)
 
-        # TODO: UVが同じでテクスチャが異なるものの対策を考える
+        atlas_materials = []
+        atlas_uvmaps = {}
+        for output_material_name, materials in material_groups.items():
+            if output_material_name is None:
+                output_material_name = settings.output_material_name
 
-        # create rects
-        rects = self.get_rects_from_unique_textures(context, atlas_ctx["image_uv"], atlas_ctx["scaled_textures"])
-        for rect in rects:
-            logger.debug("rect: {}".format(rect))
+            # 対象マテリアルのテクスチャノード取得
+            textures = self.get_texture_nodes(context, materials)
 
-        # create atlas
-        image, image_point_dic, link_images = self.create_atlas(context, rects, atlas_ctx["scaled_textures"], name=settings.output_texture_name)
+            # scale を適用
+            scale = self.create_image_to_scale_dict(context)
+            scaled_textures = self.scale_texture(context, textures, scale)
 
-        # remove scaled texture
-        for tex in atlas_ctx["scaled_textures"]:
-            logger.debug("remove temporary image: {}".format(atlas_ctx["scaled_textures"][tex][0]))
-            bpy.data.images.remove(atlas_ctx["scaled_textures"][tex][0])
+            # テクスチャからUVレイヤーの紐づけ
+            image_uv = self.get_image_to_uv_dict(context, textures)
 
-        # 表示用マテリアルの追加
-        material = util.get_asset_material(context, "AtlasMaterial")
-        material.name = settings.output_material_name
+            # create rects
+            rects = self.get_rects_from_unique_textures(
+                context, image_uv, scaled_textures
+            )
+            for rect in rects:
+                logger.debug("rect: {}".format(rect))
 
+            # create atlas
+            image, image_point_dic, link_images = self.create_atlas(
+                context, rects, scaled_textures, name=settings.output_texture_name
+            )
+
+            # remove scaled texture
+            for tex in scaled_textures:
+                logger.debug(
+                    "remove temporary image: {}".format(scaled_textures[tex][0])
+                )
+                bpy.data.images.remove(scaled_textures[tex][0])
+
+            # 表示用マテリアルの追加
+            atlas_material = util.get_asset_material(context, "AtlasMaterial")
+            atlas_material.name = output_material_name
+            atlas_materials.append(atlas_material)
+
+            for obj in context.selected_objects:
+                bm = bmesh.new()
+                bm.from_mesh(obj.data)
+                bm.faces.ensure_lookup_table()
+
+                # マテリアルごとの面を用意
+                material_face = self.create_material_face_indices(context, obj, bm)
+
+                remove_mats = []
+                for mat in material_face.keys():
+                    if mat not in materials:
+                        remove_mats.append(mat)
+                for mat in remove_mats:
+                    del material_face[mat]
+
+                # UVMapの作成
+                if obj not in atlas_uvmaps:
+                    new_uv = bm.loops.layers.uv.new(settings.output_uvmap_name)
+                    atlas_uvmaps[obj] = new_uv.name
+                else:
+                    new_uv = bm.loops.layers.uv[atlas_uvmaps[obj]]
+                self.update_uvmap(
+                    context,
+                    bm,
+                    image.size,
+                    image_point_dic,
+                    material_face,
+                    materials=materials,
+                    uvmap=new_uv,
+                )
+
+                # マテリアルの追加
+                index = len(obj.data.materials)
+                obj.data.materials.append(atlas_material)
+                obj.active_material_index = index
+
+                # 面のマテリアル割当の差し替え
+                if settings.replace_face_material:
+                    for face in bm.faces:
+                        if (
+                            obj.material_slots[face.material_index].material
+                            in material_face
+                        ):
+                            face.material_index = index
+
+                uvmap_name = new_uv.name
+                bm.to_mesh(obj.data)
+                obj.data.update()
+                bm.free()
+
+            # マテリアルのテクスチャノードの書き換え
+            self.replace_material_texture(
+                context, [atlas_material], image, settings.output_uvmap_name
+            )
+
+        # アクティブUVMapの変更
         for obj in context.selected_objects:
-            bm = bmesh.new()
-            bm.from_mesh(obj.data)
-            bm.faces.ensure_lookup_table()
-
-            # マテリアルごとの面を用意
-            material_face = self.create_material_face_indices(context, obj, bm)
-
-            # UVMapの作成
-            new_uv = self.create_new_uvmap(context, obj, bm, image.size, image_point_dic, material_face, name=settings.output_uvmap_name)
-
-            # マテリアルの追加
-            index = len(obj.data.materials)
-            obj.data.materials.append(material)
-            obj.active_material_index = index
-
-            # 面のマテリアル割当の差し替え
-            if settings.replace_face_material:
-                for face in bm.faces:
-                    face.material_index = index
-
-            uvmap_name = new_uv.name
-            bm.to_mesh(obj.data)
-            obj.data.update()
-            bm.free()
-
-            # アクティブUVMapの変更
+            uvmap_name = atlas_uvmaps[obj]
             obj.data.uv_layers.active = obj.data.uv_layers[uvmap_name]
             obj.data.uv_layers[uvmap_name].active_render = True
 
-            # 余計なUVMapの削除
-            if settings.remove_uvmaps:
+        # 余計なUVMapの削除
+        if settings.remove_uvmaps:
+            for obj in context.selected_objects:
                 remove_list = []
+                uvmap_name = atlas_uvmaps[obj]
+
                 for uv_layer in obj.data.uv_layers:
                     if uv_layer.name != uvmap_name:
                         remove_list.append(uv_layer)
                 for uv_layer in reversed(remove_list):
                     obj.data.uv_layers.remove(uv_layer)
 
-        # マテリアルのテクスチャノードの書き換え
-        self.replace_material_texture(context, [material], image, settings.output_uvmap_name)
-
-        # 使用してないマテリアルスロットの削除
+        # アトラス以外のマテリアルスロットの削除
         if settings.remove_material_slots:
             active_object = get_active_object()
 
             for obj in context.selected_objects:
                 set_active_object(obj)
-                active_index = obj.active_material_index
-                remove_list = reversed([i for i, slot in enumerate(obj.material_slots) if i != active_index])
+                remove_list = reversed(
+                    [
+                        i
+                        for i, slot in enumerate(obj.material_slots)
+                        if slot.material not in atlas_materials
+                    ]
+                )
+
                 for index in remove_list:
                     obj.active_material_index = index
                     bpy.ops.object.material_slot_remove()
@@ -138,12 +210,14 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                 image, pixels = link_images[group]
                 self.save_image(context, image)
 
-        return {'FINISHED'}
+        return {"FINISHED"}
 
     def save_image(self, context, image):
         settings = self.get_settings(context)
-        image.filepath_raw = os.path.join(settings.output_directory, image.name + '.png')
-        image.file_format = 'PNG'
+        image.filepath_raw = os.path.join(
+            settings.output_directory, image.name + ".png"
+        )
+        image.file_format = "PNG"
         image.save()
 
     def get_selected_objects_materials(self, context):
@@ -171,7 +245,11 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         scale_dic = {}
         for tex_scale in settings.texture_scales:
             scale_dic[tex_scale.texture] = tex_scale.scale
-            logger.debug("set texture scale: texture=%s, scale=%f", tex_scale.texture, tex_scale.scale)
+            logger.debug(
+                "set texture scale: texture=%s, scale=%f",
+                tex_scale.texture,
+                tex_scale.scale,
+            )
         return scale_dic
 
     def scale_texture(self, context, texture_nodes, scale_dic):
@@ -183,9 +261,14 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             if tex in scale_dic:
                 scale = scale_dic[tex]
                 if tex in scaled:
-                    logger.debug("skip: scaled texture already exists: {}".format(scaled[tex][0]))
+                    logger.debug(
+                        "skip: scaled texture already exists: {}".format(scaled[tex][0])
+                    )
                 else:
-                    scaled[tex] = (self.create_scaled_texture(context, tex, scale), scale)
+                    scaled[tex] = (
+                        self.create_scaled_texture(context, tex, scale),
+                        scale,
+                    )
         return scaled
 
     def create_scaled_texture(self, context, image, scale):
@@ -216,9 +299,9 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         link_textures = [link.ref_link for link in settings.texture_links]
 
         return (
-            isinstance(node, bpy.types.ShaderNodeTexImage) and
-            node.image is not None and
-            node.image not in link_textures
+            isinstance(node, bpy.types.ShaderNodeTexImage)
+            and node.image is not None
+            and node.image not in link_textures
         )
 
     def get_image_to_uv_dict(self, context, textures):
@@ -237,7 +320,11 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                     if isinstance(uvmap_node, bpy.types.ShaderNodeUVMap):
                         uv = layers[uvmap_node.uv_map]
                     else:
-                        logger.warn("Unsupported Node (UVMap) in {} (Texture: {})".format(obj.name, image.name))
+                        logger.warn(
+                            "Unsupported Node (UVMap) in {} (Texture: {})".format(
+                                obj.name, image.name
+                            )
+                        )
                         uv = layers[layers.active_index]
 
                 if image not in image_uv_dict:
@@ -248,7 +335,12 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
     def get_rects_from_unique_textures(self, context, image_to_uv_dict, scale_dic):
         return [
-            (scale_dic[image][0].size[0], scale_dic[image][0].size[1], image, image_to_uv_dict[image])
+            (
+                scale_dic[image][0].size[0],
+                scale_dic[image][0].size[1],
+                image,
+                image_to_uv_dict[image],
+            )
             if image in scale_dic
             else (image.size[0], image.size[1], image, image_to_uv_dict[image])
             for image in image_to_uv_dict.keys()
@@ -284,8 +376,12 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             if texture_group not in used_texture_group:
                 # create link texture
                 link_texture_name = "_".join((name, texture_group.name))
-                link_image = bpy.data.images.new(name=link_texture_name, width=size, height=size)
-                link_pixels = numpy.full((size, size, 4), list(texture_group.color) + [1.0])
+                link_image = bpy.data.images.new(
+                    name=link_texture_name, width=size, height=size
+                )
+                link_pixels = numpy.full(
+                    (size, size, 4), list(texture_group.color) + [1.0]
+                )
 
                 used_texture_group[texture_group] = (link_image, link_pixels)
             else:
@@ -298,7 +394,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
         # atlas
         atlas_image_map = {}
-        for (x, y, w, h, idx, image, mesh_uv_loop_layers) in results:
+        for x, y, w, h, idx, image, mesh_uv_loop_layers in results:
             if image in scaled_texture:
                 scaled = scaled_texture[image][0]
                 src_pixels = numpy.zeros((scaled.size[1], scaled.size[0], 4), "f")
@@ -314,14 +410,19 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         for image in atlas_image_map:
             x, y, w, h = atlas_image_map[image]
             if image in dic:
-                for (link_image, link_pixels, copy_source_image) in dic[image]:
+                for link_image, link_pixels, copy_source_image in dic[image]:
                     if image in scaled_texture:
-                        tmp = self.create_scaled_texture(context, copy_source_image, scaled_texture[image][1])
+                        tmp = self.create_scaled_texture(
+                            context, copy_source_image, scaled_texture[image][1]
+                        )
                         src_pixels = numpy.zeros((tmp.size[1], tmp.size[0], 4), "f")
                         tmp.pixels.foreach_get(src_pixels.ravel())
                         bpy.data.images.remove(tmp)
                     else:
-                        src_pixels = numpy.zeros((copy_source_image.size[1], copy_source_image.size[0], 4), "f")
+                        src_pixels = numpy.zeros(
+                            (copy_source_image.size[1], copy_source_image.size[0], 4),
+                            "f",
+                        )
                         copy_source_image.pixels.foreach_get(src_pixels.ravel())
                     self.copy_rect(link_pixels, x, y, src_pixels, 0, 0, w, h)
                     link_images[link_image] = link_pixels
@@ -349,11 +450,11 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             mat_to_face[material].append(face_idx)
         return mat_to_face
 
-    def create_new_uvmap(self, context, obj, bm, size, image_point_dic, material_face, name="AtlasUVMap"):
-        new_uv = bm.loops.layers.uv.new(name)
+    def update_uvmap(
+        self, context, bm, size, image_point_dic, material_face, materials, uvmap
+    ):
         width, height = size
-        for material_slot in obj.material_slots:
-            material = material_slot.material
+        for material in materials:
             if material not in material_face:
                 continue
 
@@ -369,21 +470,20 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                         else:
                             logger.warn("Unsupported Node (UVMap)")
                     if uv_layer is not None:
-                        new_layer = new_uv
+                        new_layer = uvmap
                         x, y, w, h = image_point_dic[node.image]
                         for face_idx in material_face[material]:
                             for loop in bm.faces[face_idx].loops:
                                 u, v = loop[uv_layer].uv
                                 loop[new_layer].uv = (
                                     (w * u + x) / width,
-                                    (h * v + y) / height
+                                    (h * v + y) / height,
                                 )
 
             if material.node_tree is None:
                 continue
 
             walk_shader_node.walk_tree(material.node_tree, texture_image)
-        return new_uv
 
     def get_clone_material_idx_dict(self, context, obj, add, mat_copy_dic):
         material_idx_dict = {}
@@ -403,7 +503,10 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             material = obj.material_slots[material_idx_dict[material_slot_idx]].material
 
             def get_uvmap_nodes(node):
-                if isinstance(node, bpy.types.ShaderNodeTexImage) and node.image is not None:
+                if (
+                    isinstance(node, bpy.types.ShaderNodeTexImage)
+                    and node.image is not None
+                ):
                     links = node.inputs["Vector"].links
                     if not links:
                         return
@@ -424,7 +527,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             if isinstance(node, bpy.types.ShaderNodeTexImage):
                 logger.debug("replace node: %s", node.image)
                 node.image = image
-                #walk_shader_node.walk_node(node, uvmap)
+                # walk_shader_node.walk_node(node, uvmap)
 
         def uvmap(node):
             if isinstance(node, bpy.types.ShaderNodeUVMap):
@@ -434,10 +537,10 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             self.walk_node(self.NodesType.WALK, material.node_tree, visit)
 
     def fill_rect(self, array, x, y, w, h, color):
-        array[y:y + h, x:x + w] = color
+        array[y : y + h, x : x + w] = color
 
     def copy_rect(self, dst_array, dx, dy, src_array, sx, sy, w, h):
-        dst_array[dy:dy + h, dx:dx + w] = src_array[sy:sy + h, sx:sx + w]
+        dst_array[dy : dy + h, dx : dx + w] = src_array[sy : sy + h, sx : sx + w]
 
     def walk_node(self, type, node_tree, function):
         nodes = None

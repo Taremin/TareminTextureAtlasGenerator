@@ -18,6 +18,12 @@
                 "ja_JP": "出力マテリアル名"
             }
         },
+        "material_group": {
+            "label": {
+                "en_US": "Material Group",
+                "ja_JP": "マテリアルグループ"
+            }
+        },
         "texture_group": {
             "label": {
                 "en_US": "Texture Group",
@@ -68,6 +74,12 @@
                 "ja_JP": "出力マテリアル名"
             }
         },
+        "active_material_group_index": {
+            "name": {
+                "en_US": "Active Index",
+                "ja_JP": "アクティブインデックス"
+            }
+        },
         "active_texture_group_index": {
             "name": {
                 "en_US": "Active Index",
@@ -100,8 +112,8 @@
         },
         "remove_material_slots": {
             "name": {
-                "en_US": "Remove material slots except active",
-                "ja_JP": "アクティブなマテリアル以外を削除する"
+                "en_US": "Remove material slots except atlas",
+                "ja_JP": "アトラス以外のマテリアルを削除する"
             }
         },
         "replace_active_material_nodetree": {
