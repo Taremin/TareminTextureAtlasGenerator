@@ -29,17 +29,27 @@ def walk_node(node, func, socket=None, stack=[], depth=0):
                 stack.append(next_node)
 
                 group = next_node.node_tree
-                group_outputs = [n for n in group.nodes if isinstance(n, bpy.types.NodeGroupOutput)]
+                group_outputs = [
+                    n for n in group.nodes if isinstance(n, bpy.types.NodeGroupOutput)
+                ]
 
                 for group_output in group_outputs:
                     for i in group_output.inputs:
                         if i.identifier == next_socket.identifier:
-                            walk_node(group_output, func, socket=i, stack=stack, depth=depth + 1)
+                            walk_node(
+                                group_output,
+                                func,
+                                socket=i,
+                                stack=stack,
+                                depth=depth + 1,
+                            )
             # Group Out
             elif isinstance(next_node, bpy.types.NodeGroupInput):
                 next_node = stack[-1:][0]
                 for i in next_node.inputs:
                     if i.identifier == next_socket.identifier:
-                        walk_node(next_node, func, socket=i, stack=stack[:-1], depth=depth - 1)
+                        walk_node(
+                            next_node, func, socket=i, stack=stack[:-1], depth=depth - 1
+                        )
             else:
                 walk_node(next_node, func, stack=stack, depth=depth)

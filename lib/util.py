@@ -18,10 +18,7 @@ def is_uvmap_upper_limit(context):
 
 def get_asset_material(context, material_name):
     blend = os.path.abspath(
-        os.path.join(
-            os.path.dirname(__file__),
-            "../asset/TextureAtlasGenerator.blend"
-        )
+        os.path.join(os.path.dirname(__file__), "../asset/TextureAtlasGenerator.blend")
     )
 
     with context.blend_data.libraries.load(blend) as (data_from, data_to):

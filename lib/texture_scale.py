@@ -7,7 +7,9 @@ class TextureScaleProps(bpy.types.PropertyGroup):
 
 
 class VIEW3D_UL_TextureScale(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(
+        self, context, layout, data, item, icon, active_data, active_propname, index
+    ):
         layout.prop(item, "texture", text="")
         col = layout.column()
         col.prop(item, "scale", text="")
@@ -16,20 +18,22 @@ class VIEW3D_UL_TextureScale(bpy.types.UIList):
 class TextureScale_OT_Add(bpy.types.Operator):
     bl_idname = "taremin.add_texture_scale"
     bl_label = "Add Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
         settings = context.scene.taremin_tag
         settings.texture_scales.add()
         settings.active_texture_scale_index = len(settings.texture_scales) - 1
-        settings.texture_scales[settings.active_texture_scale_index].name = "TextureScale"
-        return {'FINISHED'}
+        settings.texture_scales[
+            settings.active_texture_scale_index
+        ].name = "TextureScale"
+        return {"FINISHED"}
 
 
 class TextureScale_OT_Remove(bpy.types.Operator):
     bl_idname = "taremin.remove_texture_scale"
     bl_label = "Remove Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -42,13 +46,13 @@ class TextureScale_OT_Remove(bpy.types.Operator):
         max_index = len(settings.texture_scales) - 1
         if settings.active_texture_scale_index > max_index:
             settings.active_texture_scale_index = max_index
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class TextureScale_OT_Up(bpy.types.Operator):
     bl_idname = "taremin.up_texture_scale"
     bl_label = "Up Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -59,13 +63,13 @@ class TextureScale_OT_Up(bpy.types.Operator):
         index = settings.active_texture_scale_index
         settings.texture_scales.move(index, index - 1)
         settings.active_texture_scale_index = index - 1
-        return {'FINISHED'}
+        return {"FINISHED"}
 
 
 class TextureScale_OT_Down(bpy.types.Operator):
     bl_idname = "taremin.down_texture_scale"
     bl_label = "Down Entry"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {"REGISTER", "UNDO"}
 
     @classmethod
     def poll(cls, context):
@@ -78,4 +82,4 @@ class TextureScale_OT_Down(bpy.types.Operator):
         index = settings.active_texture_scale_index
         settings.texture_scales.move(index, index + 1)
         settings.active_texture_scale_index = index + 1
-        return {'FINISHED'}
+        return {"FINISHED"}

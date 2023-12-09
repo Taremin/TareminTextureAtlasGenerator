@@ -24,13 +24,10 @@ def logging_settings(name=__name__, level=DEFAULT_LEVEL):
                 "format": "[%(levelname)s]\t%(name)s:\t%(message)s"
             },
             error_formatter_name: {
-                "format": "\t".join([
-                    "%(asctime)s",
-                    "[%(levelname)s]",
-                    "%(name)s:",
-                    "%(message)s"
-                ])
-            }
+                "format": "\t".join(
+                    ["%(asctime)s", "[%(levelname)s]", "%(name)s:", "%(message)s"]
+                )
+            },
         },
         "handlers": {
             console_handler_name: {
@@ -45,7 +42,7 @@ def logging_settings(name=__name__, level=DEFAULT_LEVEL):
                 "maxBytes": 1024 * 1024,
                 "backupCount": 5,
                 "formatter": error_formatter_name,
-            }
+            },
         },
         "loggers": {
             name: {
@@ -54,9 +51,9 @@ def logging_settings(name=__name__, level=DEFAULT_LEVEL):
                     console_handler_name,
                     error_handler_name,
                 ],
-                "propagate": False
+                "propagate": False,
             }
         },
-        "disable_existing_loggers": False
+        "disable_existing_loggers": False,
     }
     config.dictConfig(configure)

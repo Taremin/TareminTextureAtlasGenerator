@@ -24,7 +24,7 @@ module_names = [
 ]
 namespace = globals()
 for name in module_names:
-    fullname = '{}.{}.{}'.format(__package__, "lib", name)
+    fullname = "{}.{}.{}".format(__package__, "lib", name)
     if fullname in sys.modules:
         namespace[name] = importlib.reload(sys.modules[fullname])
     else:
@@ -32,16 +32,16 @@ for name in module_names:
 
 # アドオン情報
 bl_info = {
-    'name': 'Taremin Texture Atlas Generator',
-    'category': '3D View',
-    'author': 'Taremin',
-    'location': 'View 3D > Taremin',
-    'description': "Generate texture atlas from selected objects",
-    'version': (0, 1, 2),
-    'blender': (2, 80, 0),
-    'wiki_url': '',
-    'tracker_url': '',
-    'warning': '',
+    "name": "Taremin Texture Atlas Generator",
+    "category": "3D View",
+    "author": "Taremin",
+    "location": "View 3D > Taremin",
+    "description": "Generate texture atlas from selected objects",
+    "version": (0, 1, 2),
+    "blender": (2, 80, 0),
+    "wiki_url": "",
+    "tracker_url": "",
+    "warning": "",
 }
 
 # クラスの登録
@@ -49,7 +49,11 @@ classes = [
     # このファイル内のBlenderクラス
 ]
 for module in module_names:
-    for module_class in [obj for name, obj in inspect.getmembers(namespace[module], inspect.isclass) if hasattr(obj, "bl_rna")]:
+    for module_class in [
+        obj
+        for name, obj in inspect.getmembers(namespace[module], inspect.isclass)
+        if hasattr(obj, "bl_rna")
+    ]:
         classes.append(module_class)
 
 
@@ -81,5 +85,5 @@ def unregister():
     Path(__file__).touch()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     register()

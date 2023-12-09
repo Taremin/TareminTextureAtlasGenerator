@@ -53,7 +53,7 @@ class BLFSolver:
             self.check_and_push(bl_points, 0, cy2)
 
             # 配置予定の矩形と、配置済み矩形からBL安定点候補を列挙
-            for (x, y, w, h, idx, *arg) in result:
+            for x, y, w, h, idx, *arg in result:
                 # 配置済みの矩形
                 px1 = x
                 px2 = x + w
@@ -74,10 +74,7 @@ class BLFSolver:
             result.append((blp[0], blp[1], rect[0], rect[1], rect_idx) + rect[2:])
 
             # マスクを更新
-            self.mask[
-                blp[1]:blp[1] + rect[1],
-                blp[0]:blp[0] + rect[0]
-            ] = True
+            self.mask[blp[1] : blp[1] + rect[1], blp[0] : blp[0] + rect[0]] = True
 
         if reverse:
             for idx in range(len(result)):
@@ -113,12 +110,7 @@ class BLFSolver:
             return False
 
         # numpy.any で配置済みのところと衝突していたら True なので返すのは反転
-        result = not numpy.any(
-            self.mask[
-                bottom:top,
-                left:right
-            ]
-        )
+        result = not numpy.any(self.mask[bottom:top, left:right])
 
         return result
 
