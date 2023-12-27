@@ -381,6 +381,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         # texture link
         dic = {}
         used_texture_group = {}
+        link_images = {}
         for link in settings.texture_links:
             ref_type = int(link.ref_type)
             texture_group = settings.texture_groups[ref_type]
@@ -397,6 +398,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                 )
 
                 used_texture_group[texture_group] = (link_image, link_pixels)
+                link_images[link_image] = link_pixels
             else:
                 link_image, link_pixels = used_texture_group[texture_group]
 
@@ -419,7 +421,6 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             atlas_image_map[image] = (x, y, w, h)
 
         # copy link texture
-        link_images = {}
         for image in atlas_image_map:
             x, y, w, h = atlas_image_map[image]
             if image in dic:
