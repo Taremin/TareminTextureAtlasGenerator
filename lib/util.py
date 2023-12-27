@@ -1,4 +1,25 @@
+import bpy
 import os
+import json
+
+path = os.path.join(os.path.dirname(__file__), "../resources.json")
+resources = json.load(open(path, encoding="utf-8"))
+
+
+def read_resource(*props):
+    lang = bpy.app.translations.locale
+    prop = resources
+    for prop_name in props:
+        prop = prop[prop_name]
+    return prop[lang] if lang in prop else prop["en_US"]
+
+
+def read_property(*props):
+    return read_resource("property", *props)
+
+
+def read_panel(*props):
+    return read_resource("panel", *props)
 
 
 def is_uvmap_upper_limit(context):
