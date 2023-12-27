@@ -163,6 +163,15 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                 context, [atlas_material], image, settings.output_uvmap_name
             )
 
+            if settings.is_auto_save:
+                # Texture Atlas (Base)
+                self.save_image(context, image)
+
+                # Texture Atlas (Link)
+                for group in link_images:
+                    image, pixels = link_images[group]
+                    self.save_image(context, image)
+
         # アクティブUVMapの変更
         for obj in context.selected_objects:
             uvmap_name = atlas_uvmaps[obj]
@@ -200,15 +209,6 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                     bpy.ops.object.material_slot_remove()
 
             set_active_object(active_object)
-
-        if settings.is_auto_save:
-            # Texture Atlas (Base)
-            self.save_image(context, image)
-
-            # Texture Atlas (Link)
-            for group in link_images:
-                image, pixels = link_images[group]
-                self.save_image(context, image)
 
         return {"FINISHED"}
 
