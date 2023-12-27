@@ -51,26 +51,39 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                 pattern = material_group.regex.encode().decode("unicode_escape")
 
                 if re.search(pattern=pattern, string=material.name):
-                    replaced = re.sub(
+                    replaced_material_name = re.sub(
                         pattern=".*" + pattern + ".*",
-                        repl=material_group.name,
+                        repl=material_group.material_name,
                         string=material.name,
                     )
-                    logger.debug(f"Material Group: {material.name} => {replaced}")
-                    if replaced not in material_groups:
-                        material_groups[replaced] = []
-                    material_groups[replaced].append(material)
+                    replaced_texture_name = re.sub(
+                        pattern=".*" + pattern + ".*",
+                        repl=material_group.texture_name,
+                        string=material.name,
+                    )
+                    logger.debug(
+                        f"Material Group: {material.name} => {replaced_material_name}"
+                    )
+                    if replaced_material_name not in material_groups:
+                        material_groups[replaced_material_name] = (
+                            [],
+                            replaced_texture_name,
+                        )
+                    material_groups[replaced_material_name][0].append(material)
                     matched = True
                     break
 
             if not matched:
                 if None not in material_groups:
-                    material_groups[None] = []
-                material_groups[None].append(material)
+                    material_groups[None] = ([], settings.output_texture_name)
+                material_groups[None][0].append(material)
 
         atlas_materials = []
         atlas_uvmaps = {}
-        for output_material_name, materials in material_groups.items():
+        for output_material_name, (
+            materials,
+            output_texture_name,
+        ) in material_groups.items():
             if output_material_name is None:
                 output_material_name = settings.output_material_name
 
@@ -93,7 +106,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
             # create atlas
             image, image_point_dic, link_images = self.create_atlas(
-                context, rects, scaled_textures, name=settings.output_texture_name
+                context, rects, scaled_textures, name=output_texture_name
             )
 
             # remove scaled texture

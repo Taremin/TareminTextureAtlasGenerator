@@ -1,21 +1,60 @@
 import bpy
 
+from .util import read_property
+
 
 class MaterialGroupProps(bpy.types.PropertyGroup):
-    name: bpy.props.StringProperty(name="Name", default="")
-    regex: bpy.props.StringProperty(name="RegExp", default="")
+    is_folding: bpy.props.BoolProperty(default=False)
+    name: bpy.props.StringProperty(
+        name="Name",
+        description=read_property("material_group_name", "description"),
+        default="",
+    )
+    material_name: bpy.props.StringProperty(
+        name="Material Name",
+        description=read_property("material_group_material_name", "description"),
+        default="",
+    )
+    texture_name: bpy.props.StringProperty(
+        name="Texuture Name",
+        description=read_property("material_group_texture_name", "description"),
+        default="",
+    )
+    regex: bpy.props.StringProperty(
+        name="RegExp",
+        description=read_property("material_group_regex", "description"),
+        default="",
+    )
 
 
 class VIEW3D_UL_MaterialGroup(bpy.types.UIList):
     def draw_item(
         self, context, layout, data, item, icon, active_data, active_propname, index
     ):
-        layout.label(text="", icon="MATERIAL")
-        row = layout.row()
-        col = row.column()
-        col.prop(item, "name", text="")
-        col = row.column()
-        col.prop(item, "regex", text="")
+        col = layout.column()
+
+        row = col.row()
+        row.prop(
+            item,
+            "is_folding",
+            icon="TRIA_RIGHT" if item.is_folding else "TRIA_DOWN",
+            icon_only=True,
+        )
+
+        if item.is_folding:
+            layout.label(text=item.name)
+        else:
+            box = layout.box()
+            for prop_name, label in (
+                ("name", read_property("material_group_name", "name")),
+                (
+                    "material_name",
+                    read_property("material_group_material_name", "name"),
+                ),
+                ("texture_name", read_property("material_group_texture_name", "name")),
+                ("regex", read_property("material_group_regex", "name")),
+            ):
+                box.prop(item, prop_name, text=label)
 
 
 class MaterialGroup_OT_Add(bpy.types.Operator):

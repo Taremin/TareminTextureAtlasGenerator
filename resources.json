@@ -133,6 +133,46 @@
                 "en_US": "Output Directory",
                 "ja_JP": "出力先ディレクトリ"
             }
+        },
+        "material_group_name": {
+            "name": {
+                "en_US": "Setting Name",
+                "ja_JP": "設定名"
+            },
+            "description": {
+                "en_US": "Setting Name used to display. Does not affect processing",
+                "ja_JP": "表示するのに使用する設定名。処理には影響しません。"
+            }
+        },
+        "material_group_material_name": {
+            "name": {
+                "en_US": "Material Name",
+                "ja_JP": "マテリアル名"
+            },
+            "description": {
+                "en_US": "Group output material name (backward reference available)",
+                "ja_JP": "グループの出力するマテリアル名(後方参照使用可能)"
+            }
+        },
+        "material_group_texture_name": {
+            "name": {
+                "en_US": "Texture Name",
+                "ja_JP": "テクスチャ名"
+            },
+            "description": {
+                "en_US": "Group output texture name (backward reference available)",
+                "ja_JP": "グループの出力するテクスチャ名(後方参照使用可能)"
+            }
+        },
+        "material_group_regex": {
+            "name": {
+                "en_US": "Regular Expression",
+                "ja_JP": "正規表現"
+            },
+            "description": {
+                "en_US": "Regular Expression to match material name",
+                "ja_JP": "マテリアル名とマッチさせる正規表現"
+            }
         }
     }
 }
