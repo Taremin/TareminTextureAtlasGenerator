@@ -29,7 +29,7 @@ zip ファイルをダウンロードして、「編集」「設定」「アド�
   - シンプルな表示確認用のマテリアルが対象オブジェクトに追加されます
   - マテリアル名は Output Material Name で設定できます。
 
-その他、後述の Texture Group に応じたテクスチャが生成されます。
+その他、後述の Material Group, Texture Group に応じたテクスチャが生成されます。
 
 ## Material Group
 
