@@ -349,13 +349,15 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
     def get_rects_from_unique_textures(self, context, image_to_uv_dict, scale_dic):
         return [
             (
-                scale_dic[image][0].size[0],
-                scale_dic[image][0].size[1],
-                image,
-                image_to_uv_dict[image],
+                (
+                    scale_dic[image][0].size[0],
+                    scale_dic[image][0].size[1],
+                    image,
+                    image_to_uv_dict[image],
+                )
+                if image in scale_dic
+                else (image.size[0], image.size[1], image, image_to_uv_dict[image])
             )
-            if image in scale_dic
-            else (image.size[0], image.size[1], image, image_to_uv_dict[image])
             for image in image_to_uv_dict.keys()
         ]
 
