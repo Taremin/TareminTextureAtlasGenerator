@@ -377,7 +377,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         size, results = blf.solve(self.calc_init_size(rects))
 
         atlas_image = bpy.data.images.new(name=name, width=size, height=size)
-        pixels = numpy.zeros((size, size, 4), "f")
+        pixels = numpy.empty((size, size, 4), dtype=numpy.float32)
         atlas_image.pixels.foreach_get(pixels.ravel())
 
         # texture link
@@ -396,7 +396,9 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                     name=link_texture_name, width=size, height=size
                 )
                 link_pixels = numpy.full(
-                    (size, size, 4), list(texture_group.color) + [1.0]
+                    (size, size, 4),
+                    list(texture_group.color) + [1.0],
+                    dtype=numpy.float32,
                 )
 
                 used_texture_group[texture_group] = (link_image, link_pixels)
@@ -411,14 +413,21 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
         # atlas
         atlas_image_map = {}
+
         for x, y, w, h, idx, image, mesh_uv_loop_layers in results:
             if image in scaled_texture:
                 scaled = scaled_texture[image][0]
-                src_pixels = numpy.zeros((scaled.size[1], scaled.size[0], 4), "f")
-                scaled.pixels.foreach_get(src_pixels.ravel())
+                src_pixels = numpy.empty(
+                    scaled.size[1] * scaled.size[0] * 4, dtype=numpy.float32
+                )
+                scaled.pixels.foreach_get(src_pixels)
             else:
-                src_pixels = numpy.zeros((image.size[1], image.size[0], 4), "f")
-                image.pixels.foreach_get(src_pixels.ravel())
+                src_pixels = numpy.empty(
+                    image.size[1] * image.size[0] * 4, dtype=numpy.float32
+                )
+                image.pixels.foreach_get(src_pixels)
+
+            src_pixels = src_pixels.reshape((h, w, 4))
             self.copy_rect(pixels, x, y, src_pixels, 0, 0, w, h)
             atlas_image_map[image] = (x, y, w, h)
 
@@ -431,19 +440,24 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                         tmp = self.create_scaled_texture(
                             context, copy_source_image, scaled_texture[image][1]
                         )
-                        src_pixels = numpy.zeros((tmp.size[1], tmp.size[0], 4), "f")
-                        tmp.pixels.foreach_get(src_pixels.ravel())
+                        src_pixels = numpy.empty(
+                            tmp.size[1] * tmp.size[0] * 4, dtype=numpy.float32
+                        )
+                        tmp.pixels.foreach_get(src_pixels)
                         bpy.data.images.remove(tmp)
                     else:
-                        src_pixels = numpy.zeros(
-                            (copy_source_image.size[1], copy_source_image.size[0], 4),
-                            "f",
+                        src_pixels = numpy.empty(
+                            copy_source_image.size[1] * copy_source_image.size[0] * 4,
+                            dtype=numpy.float32,
                         )
-                        copy_source_image.pixels.foreach_get(src_pixels.ravel())
+                        copy_source_image.pixels.foreach_get(src_pixels)
+
+                    src_pixels = src_pixels.reshape((h, w, 4))
                     self.copy_rect(link_pixels, x, y, src_pixels, 0, 0, w, h)
                     link_images[link_image] = link_pixels
+
         for link_image in link_images:
-            link_image.pixels = link_images[link_image].ravel()
+            link_image.pixels.foreach_set(link_images[link_image].ravel())
 
         atlas_image.pixels.foreach_set(pixels.ravel())
 
