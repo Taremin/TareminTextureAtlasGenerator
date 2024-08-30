@@ -1,6 +1,7 @@
 import bpy
 import os
 import json
+import time
 
 path = os.path.join(os.path.dirname(__file__), "../resources.json")
 resources = json.load(open(path, encoding="utf-8"))
@@ -46,3 +47,15 @@ def get_asset_material(context, material_name):
         data_to.materials = [material_name]
 
     return data_to.materials[0]
+
+
+def measure(msg, func, *args, **kwargs):
+    start = time.perf_counter()
+    retval = func(*args, **kwargs)
+    end = time.perf_counter()
+
+    print(
+        f"{msg} in Function:{func.__name__} processing time:{round(end - start, 4)} sec"
+    )
+
+    return retval
