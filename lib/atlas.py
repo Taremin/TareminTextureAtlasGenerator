@@ -122,6 +122,9 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             atlas_materials.append(atlas_material)
 
             for obj in context.selected_objects:
+                if not any(m in materials for m in obj.data.materials):
+                    continue
+
                 bm = bmesh.new()
                 bm.from_mesh(obj.data)
                 bm.faces.ensure_lookup_table()
