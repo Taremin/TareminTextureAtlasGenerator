@@ -6,6 +6,13 @@ from .util import read_property, read_panel
 
 # TODO: Class name
 class AtlasPanelProps(bpy.types.PropertyGroup):
+    target: bpy.props.EnumProperty(
+        items=[
+            ("SELECTED", "Selected Objects", ""),
+            ("ALL", "All Objects", ""),
+        ]
+    )
+
     output_texture_name: bpy.props.StringProperty(
         name=read_property("output_texture_name", "name"), default="AtlasTexture"
     )
@@ -81,6 +88,9 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_PT_Panel(bpy.types.Panel):
     def draw(self, context):
         settings = context.scene.taremin_tag
         layout = self.layout
+
+        row = layout.row()
+        row.prop(settings, "target", text="")
 
         row = layout.row()
         row.label(text=read_panel("output_texture_name", "label") + ":")

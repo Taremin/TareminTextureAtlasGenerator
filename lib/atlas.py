@@ -33,13 +33,15 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         is_uvmap_limit, uvmap_limit_objs = util.is_uvmap_upper_limit(context)
-        return len(context.selected_objects) > 0 and not is_uvmap_limit
+        return len(cls.get_target_objects_impl(cls, context)) > 0 and not is_uvmap_limit
 
     def execute(self, context):
         settings = self.get_settings(context)
 
+        target_objects = self.get_target_objects(context)
+
         # 選択オブジェクトのマテリアル
-        target_materials = self.get_selected_objects_materials(context)
+        target_materials = self.get_target_objects_materials(target_objects)
 
         # 複数のアトラスにマテリアルを振り分ける
         material_groups = {}
@@ -95,7 +97,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             scaled_textures = self.scale_texture(context, textures, scale)
 
             # テクスチャからUVレイヤーの紐づけ
-            image_uv = self.get_image_to_uv_dict(context, textures)
+            image_uv = self.get_image_to_uv_dict(context, target_objects, textures)
 
             # create rects
             rects = self.get_rects_from_unique_textures(
@@ -121,7 +123,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             atlas_material.name = output_material_name
             atlas_materials.append(atlas_material)
 
-            for obj in context.selected_objects:
+            for obj in target_objects:
                 if not any(m in materials for m in obj.data.materials):
                     continue
 
@@ -189,14 +191,14 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                     self.save_image(context, image)
 
         # アクティブUVMapの変更
-        for obj in context.selected_objects:
+        for obj in target_objects:
             uvmap_name = atlas_uvmaps[obj]
             obj.data.uv_layers.active = obj.data.uv_layers[uvmap_name]
             obj.data.uv_layers[uvmap_name].active_render = True
 
         # 余計なUVMapの削除
         if settings.remove_uvmaps:
-            for obj in context.selected_objects:
+            for obj in target_objects:
                 remove_list = []
                 uvmap_name = atlas_uvmaps[obj]
 
@@ -210,7 +212,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         if settings.remove_material_slots:
             active_object = get_active_object()
 
-            for obj in context.selected_objects:
+            for obj in target_objects:
                 set_active_object(obj)
                 remove_list = reversed(
                     [
@@ -236,9 +238,21 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
         image.file_format = "PNG"
         image.save()
 
-    def get_selected_objects_materials(self, context):
+    @staticmethod
+    def get_target_objects_impl(cls, context):
+        settings = cls.get_settings(cls, context)
+
+        if settings.target == "SELECTED":
+            return [obj for obj in context.selected_objects if obj.type != "ARMATURE"]
+        elif settings.target == "ALL":
+            return [obj for obj in context.scene.objects if obj.type != "ARMATURE"]
+
+    def get_target_objects(self, context):
+        return self.get_target_objects_impl(self.__class__, context)
+
+    def get_target_objects_materials(self, target_objects):
         target_materials = []
-        for obj in context.selected_objects:
+        for obj in target_objects:
             for material in obj.data.materials:
                 if material not in target_materials:
                     target_materials.append(material)
@@ -320,9 +334,9 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             and node.image not in link_textures
         )
 
-    def get_image_to_uv_dict(self, context, textures):
+    def get_image_to_uv_dict(self, context, target_objects, textures):
         image_uv_dict = {}
-        for obj in context.selected_objects:
+        for obj in target_objects:
             for tex_node in textures:
                 image = tex_node.image
                 layers = obj.data.uv_layers
