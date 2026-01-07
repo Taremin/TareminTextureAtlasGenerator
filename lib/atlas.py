@@ -419,7 +419,7 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
                 )
 
                 used_texture_group[texture_group] = (link_image, link_pixels)
-                link_images[link_image] = link_pixels
+                link_images[link_image] = (link_pixels, texture_group)
             else:
                 link_image, link_pixels = used_texture_group[texture_group]
 
@@ -430,8 +430,14 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
         # atlas
         atlas_image_map = {}
+        unsupported_colorspaces = set()  # サポート外のカラースペースを記録
 
         for x, y, w, h, idx, image, mesh_uv_loop_layers in results:
+            # ソーステクスチャのカラースペースをチェック
+            source_colorspace = image.colorspace_settings.name
+            if source_colorspace not in ["sRGB", "Non-Color", "Linear Rec.709"]:
+                unsupported_colorspaces.add((image.name, source_colorspace))
+            
             if image in scaled_texture:
                 scaled = scaled_texture[image][0]
                 src_pixels = numpy.empty(
@@ -447,6 +453,15 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
             src_pixels = src_pixels.reshape((h, w, 4))
             self.copy_rect(pixels, x, y, src_pixels, 0, 0, w, h)
             atlas_image_map[image] = (x, y, w, h)
+
+        # サポート外のカラースペースがあれば警告
+        if unsupported_colorspaces:
+            for img_name, cs in unsupported_colorspaces:
+                self.report(
+                    {"WARNING"},
+                    f"Unsupported color space '{cs}' in texture '{img_name}'. "
+                    "Only sRGB and Non-Color are fully supported."
+                )
 
         # copy link texture
         for image in atlas_image_map:
@@ -471,14 +486,40 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_OT_Atlas(bpy.types.Operator):
 
                     src_pixels = src_pixels.reshape((h, w, 4))
                     self.copy_rect(link_pixels, x, y, src_pixels, 0, 0, w, h)
-                    link_images[link_image] = link_pixels
+                    # テクスチャグループの情報を取得
+                    for tg, (li, lp) in used_texture_group.items():
+                        if li == link_image:
+                            link_images[link_image] = (link_pixels, tg)
+                            break
 
         for link_image in link_images:
-            link_image.pixels.foreach_set(link_images[link_image].ravel())
+            link_pixels_data, texture_group = link_images[link_image]
+            group_color_space = texture_group.output_color_space
+            # sRGB出力の場合は変換を適用
+            if group_color_space == "sRGB":
+                link_pixels_data = self.linear_to_srgb(link_pixels_data)
+            # カラースペース名を先に設定
+            link_image.colorspace_settings.name = group_color_space
+            link_image.pixels.foreach_set(link_pixels_data.ravel())
 
+        # sRGB出力の場合は変換を適用
+        if settings.output_color_space == "sRGB":
+            pixels = self.linear_to_srgb(pixels)
+        # カラースペース名を先に設定
+        atlas_image.colorspace_settings.name = settings.output_color_space
         atlas_image.pixels.foreach_set(pixels.ravel())
 
         return (atlas_image, atlas_image_map, used_texture_group)
+
+    def linear_to_srgb(self, arr):
+        """Linear から sRGB への変換 (RGB only)"""
+        rgb = arr[:, :, :3].copy()
+        mask = rgb <= 0.0031308
+        rgb[mask] *= 12.92
+        rgb[~mask] = 1.055 * (rgb[~mask] ** (1.0 / 2.4)) - 0.055
+        result = arr.copy()
+        result[:, :, :3] = rgb
+        return result
 
     def add_clone_materials(self, context, obj, target_materials):
         add = []

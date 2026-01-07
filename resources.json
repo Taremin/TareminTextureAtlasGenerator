@@ -53,6 +53,12 @@
                 "en_US": "Generate Atlas",
                 "ja_JP": "アトラス画像の生成"
             }
+        },
+        "output_color_space": {
+            "label": {
+                "en_US": "Output Color Space",
+                "ja_JP": "出力カラースペース"
+            }
         }
     },
     "property": {
@@ -132,6 +138,18 @@
             "name": {
                 "en_US": "Output Directory",
                 "ja_JP": "出力先ディレクトリ"
+            }
+        },
+        "output_color_space": {
+            "name": {
+                "en_US": "Output Color Space",
+                "ja_JP": "出力カラースペース"
+            }
+        },
+        "color_space_acescg": {
+            "name": {
+                "en_US": "ACEScg",
+                "ja_JP": "ACEScg"
             }
         },
         "material_group_name": {

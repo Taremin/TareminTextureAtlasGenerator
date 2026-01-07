@@ -9,6 +9,14 @@ class TextureGroupProps(bpy.types.PropertyGroup):
         min=0.0,
         max=1.0,
     )
+    output_color_space: bpy.props.EnumProperty(
+        name="Output Color Space",
+        items=[
+            ("sRGB", "sRGB", "Standard sRGB color space"),
+            ("Non-Color", "Non-Color", "Non-color data"),
+        ],
+        default="Non-Color",
+    )
 
 
 class VIEW3D_UL_TextureGroup(bpy.types.UIList):
@@ -20,6 +28,9 @@ class VIEW3D_UL_TextureGroup(bpy.types.UIList):
         col = layout.column()
         col.ui_units_x = 1.0
         col.prop(item, "color", text="")
+        col = layout.column()
+        col.ui_units_x = 3.0
+        col.prop(item, "output_color_space", text="")
 
 
 class TextureGroup_OT_Add(bpy.types.Operator):

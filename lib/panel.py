@@ -59,6 +59,14 @@ class AtlasPanelProps(bpy.types.PropertyGroup):
     output_directory: bpy.props.StringProperty(
         name=read_property("output_directory", "name"), default="//", subtype="DIR_PATH"
     )
+    output_color_space: bpy.props.EnumProperty(
+        name=read_property("output_color_space", "name"),
+        items=[
+            ("sRGB", "sRGB", "Standard sRGB color space"),
+            ("Non-Color", "Non-Color", "Non-color data"),
+        ],
+        default="sRGB",
+    )
 
 
 class TAREMIN_TEXTURE_ATLAS_GENERATOR_PT_Panel(bpy.types.Panel):
@@ -106,6 +114,11 @@ class TAREMIN_TEXTURE_ATLAS_GENERATOR_PT_Panel(bpy.types.Panel):
         row.label(text=read_panel("output_material_name", "label") + ":")
         row = layout.row()
         row.prop(settings, "output_material_name", text="")
+
+        row = layout.row()
+        row.label(text=read_panel("output_color_space", "label") + ":")
+        row = layout.row()
+        row.prop(settings, "output_color_space", text="")
 
         layout.separator()
 
